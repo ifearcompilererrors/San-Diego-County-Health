@@ -13,7 +13,7 @@ var geo = ["Central Region", "East Region", "North Central Region", "North Coast
 
 //var byNum
 
-d3.csv("2010-2012_Dementia.csv", function(error,data){
+d3.csv("static/csv/2010-2012_Dementia.csv", function(error,data){
   console.log(data);
   console.log(error);
 
@@ -43,7 +43,7 @@ d3.csv("2010-2012_Dementia.csv", function(error,data){
       .append("text")
       .text(function(d){ return d.Geography+" "+(d["2012 Dementia Death No."]); })
       .attr("fill", "white")
-      .attr("y", function(d,i){ return i*52; });
+      .attr("dy", function(d,i){ return i*52; });
 
   var div = d3.select("body")
     .selectAll("div")
