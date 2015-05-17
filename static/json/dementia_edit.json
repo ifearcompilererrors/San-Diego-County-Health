@@ -1,0 +1,28 @@
+	[
+		{ 
+			"geography": "Central Region",
+			"Dementia_Death_No": 84,
+			"Dementia_Death_Rate*": 17.3
+		},
+		{
+			"geography": "Central San Diego",
+			"Dementia_Death_No": 27,
+			"Dementia_Death_Rate*": 16.3
+		},
+		{
+			"geography": "Mid-City",
+			"Dementia_Death_No": 36,
+			"Dementia_Death_Rate*": 22.1
+		},
+		{
+			"geography": "Southeastern San Diego",
+			"Dementia_Death_No": 21,
+			"Dementia_Death_Rate*": 13.5
+		},
+		{
+			"geography": "East Region",
+			"Dementia_Death_No": 131,
+			"Dementia_Death_Rate*": 28.3
+		}
+	]
+	
