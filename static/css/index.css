@@ -2,6 +2,65 @@ body{
 	overflow-x:hidden;
 }
 
-div{
-	margin:2px 0 2px 0;
+.info{
+	top:0;
+	right:0;
+	position:fixed;
+	min-height:100vh;
+	max-height:100vh;
+	min-width:18%;
+	max-width:18%;
+	background-color:lightblue;
+	padding:1em;
+	overflow-y:scroll;
 }
+
+/*Central Region
+Central San Diego
+Mid-City
+Southeastern San Diego
+East Region
+Alpine
+El Cajon
+Harbison Crest/El Cajon
+Jamul
+La Mesa
+Laguna-Pine  Valley
+Lakeside
+Lemon Grove
+Mountain Empire
+Santee
+Spring Valley
+North Central Region
+Coastal
+Del Mar-Mira Mesa
+Elliott-Navajo
+Kearny Mesa
+Miramar
+Peninsula
+University
+North Coastal Region
+Carlsbad
+Oceanside
+Pendleton
+San Dieguito
+Vista
+North Inland Region
+Anza-Borrego Springs
+Escondido
+Fallbrook
+North San Diego
+Palomar-Julian
+Pauma
+Poway
+Ramona
+San Marcos
+Valley Center
+South Region
+Chula Vista
+Coronado
+National City
+South Bay
+Sweetwater
+Unknown
+*/
