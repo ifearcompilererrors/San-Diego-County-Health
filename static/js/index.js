@@ -40,12 +40,12 @@ function random(){ return Math.floor(Math.random()*10); }
   d3.csv("/static/csv/2010-2012_Dementia.csv", function(error,data){
     d3.select("svg").selectAll("path")
       .data(data)
-      .attr("fill", function(d){ if( (+d["2012 Dementia Death No."]) < 20  ) return 'rgb(70,130,110)';
-                                 if( (+d["2012 Dementia Death No."]) < 50  ) return 'rgb(70,130,150)';
-                                 if( (+d["2012 Dementia Death No."]) < 80  ) return 'rgb(70,130,170)';
-                                 if( (+d["2012 Dementia Death No."]) < 110  ) return 'rgb(70,130,190)';
-                                 if( (+d["2012 Dementia Death No."]) < 200  ) return 'rgb(70,130,220)'
-                                 if( (+d["2012 Dementia Death No."]) < 500  ) return 'rgb(70,130,250)';
+      .attr("fill", function(d){ if( (+d["2012 Dementia Death No."]) < 20  ) return 'rgb(110,170,190)';
+                                 if( (+d["2012 Dementia Death No."]) < 50  ) return 'rgb(90,150,170)';
+                                 if( (+d["2012 Dementia Death No."]) < 80  ) return 'rgb(70,130,150)';
+                                 if( (+d["2012 Dementia Death No."]) < 110  ) return 'rgb(50,110,130)';
+                                 if( (+d["2012 Dementia Death No."]) < 200  ) return 'rgb(30,90,110)';
+                                 if( (+d["2012 Dementia Death No."]) < 500  ) return 'rgb(10,70,90)';
                                 });
   });
 
@@ -55,6 +55,9 @@ function random(){ return Math.floor(Math.random()*10); }
 
 $(document).ready(function(){
 $("#dementia_no").click(function(){
+  $("#dementia_rate").css("background-color", "");
+  $("#dementia_no").css("background-color", "steelblue");
+  $("#population").css("background-color", "");
   $("#hold").text("");
   d3.csv("/static/csv/2010-2012_Dementia.csv", function(error,data){
     var list = d3.select("#hold").selectAll("text")
@@ -78,6 +81,9 @@ $("#dementia_no").click(function(){
 });
 
 $("#dementia_rate").click(function(){
+  $("#dementia_rate").css("background-color", "steelblue");
+  $("#dementia_no").css("background-color", "");
+  $("#population").css("background-color", "");
   $("#hold").text("");
   d3.csv("/static/csv/2010-2012_Dementia.csv", function(error,data){
     var list = d3.select("#hold").selectAll("text")
@@ -101,6 +107,9 @@ $("#dementia_rate").click(function(){
 });
 
 $("#population").click(function(){
+  $("#dementia_rate").css("background-color", "");
+  $("#dementia_no").css("background-color", "");
+  $("#population").css("background-color", "steelblue");
   $("#hold").text("");
   d3.csv("/static/csv/2012_San_Diego_Demographics_-_County_Population.csv", function(error,data){
     var list = d3.select("#hold").selectAll("text")

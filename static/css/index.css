@@ -15,6 +15,46 @@ body{
 	overflow-y:scroll;
 }
 
+.legend{
+	border:solid black 1px;
+	right:22%;
+	min-height:4em;
+	max-height:4em;
+	min-width:10em;
+	max-width:10em;
+	position:fixed;
+	padding:.5em .5em 1em .5em;
+}
+
+.key{
+	min-height:1em;
+	max-height:1em;
+	min-width:1em;
+	max-width:1em;
+	float:left; 
+}
+
+.value{
+	float:left;
+	padding:0 2px 0 2px;
+}
+
+.none{
+	background-color:lavender;
+}
+
+.light{
+	background-color:rgb(110,170,190);
+}
+
+.med{
+	background-color:rgb(90,150,170);
+}
+
+.heavy{
+	background-color:rgb(30,90,110);
+}
+
 /*Central Region
 Central San Diego
 Mid-City
