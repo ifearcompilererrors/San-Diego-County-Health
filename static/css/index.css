@@ -40,7 +40,7 @@ body{
 }
 
 .legend{
-	border:solid black 1px;
+	/*border:solid black 1px;*/
 	right:22%;
 	bottom:5%;
 	min-height:11em;
@@ -68,11 +68,11 @@ body{
 .ref{
 	right:22%;
 	top:20%;
-	border:solid black 1px;
+	/*border:solid black 1px;*/
 	min-height:8em;
 	max-height:8em;
-	min-width:8em;
-	max-width:8em;
+	min-width:7em;
+	max-width:7em;
 	position:fixed;
 	padding:1em;
 }
