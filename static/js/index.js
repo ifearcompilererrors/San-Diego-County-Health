@@ -63,6 +63,51 @@ d3.json("/static/json/SRA2010tiger.geojson", function(error, data){
           radius: d['Total Reported Emissions']/100,
           className: 'pollutant co2',
         })
+        .on('mouseover', function(e) {
+          var layer = e.target,
+              data = d;
+          var titles = ["<div class='marker-title'>", "Facility: ", "City: " , "State: " , "Total Reported Emissions: " , "Sectors: "]
+          var features = [data['Facility'], data['City'], data['State'], data['Total Reported Emissions'], data['Sectors']]
+          var display = [];
+          var content = "";
+
+          for(var i = 0; i < features.length; i++) {
+            if(features[i] !== null) {
+              content = titles[i] + features[i];
+              if(i === 0)
+                display.push(content+"</div>");
+              else
+                display.push(content+"<br>");
+            }
+          }
+
+          content = "";
+          for(var x = 0; x < display.length; x++) {
+            content += display[x];
+          }
+
+          popup.setLatLng(e.latlng);
+          popup.setContent(content);
+
+          if (!popup._map) popup.openOn(map);
+          window.clearTimeout(closeTooltip);
+
+          // highlight feature
+          layer.setStyle({
+            weight: 3,
+            opacity: 0.3,
+            fillOpacity: 0.9
+          });
+
+          if (!L.Browser.ie && !L.Browser.opera) {
+            layer.bringToFront();
+          }
+        }) // end mouseover
+        .on('mouseout', function(e) {
+          closeTooltip = window.setTimeout(function() {
+            map.closePopup();
+          }, 100);
+        }) //
       );
     });
   });
