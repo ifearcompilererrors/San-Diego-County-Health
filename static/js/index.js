@@ -1,3 +1,6 @@
+// For development o nNLyyyYYYYYYYYY!!!!!!/!?!11!?1!?11111
+var debugMode = true;
+
 var latlong = [33.026142, -116.696322],
     windowWidth   = $(window).width(),
     windowHeight  = $(window).height(),
@@ -7,20 +10,38 @@ var latlong = [33.026142, -116.696322],
     geojsonLayer = L.layerGroup(),
     co2Layer = L.layerGroup(),
     closeTooltip,
-    svg;
+    svg,
+    popBits = 000000; // In all flavors c; total, black, latinx, api, other, white
 
 // Draw map
 L.mapbox.accessToken = 'pk.eyJ1IjoiaWZlYXJjb21waWxlcmVycm9ycyIsImEiOiJjaXUwOTFpdm0wMXNhMm9xcDZ1MmNiNmF0In0.ZVVzG5Amju9GXPtGPUwEwg';
 var map = L.mapbox.map('map', 'mapbox.streets')
-    .setView(latlong, 9);
-
+  .setView(latlong, 9);
+// Display neighborhood layer
 geojsonLayer.addTo(map)
 
-$('#pollutant-CO2').click(function() {
-  if($('#pollutant-CO2').is(':checked') && $('.co2').length == 0) {
-    map.addLayer(co2Layer);
-  } else {
-    map.removeLayer(co2Layer);
+// Append population color legend
+appendLegend();
+
+// Toggle switch!
+$('.toggle').click(function(d) {
+  switch(this.id) {
+    // Display emissions layer
+    case 'pollutant-CO2':
+      if($('.co2').length == 0) {
+        map.addLayer(co2Layer);
+      } else {
+        map.removeLayer(co2Layer);
+      }
+      break; // end pollutant-CO2
+    default: break;
+  }
+  switch(this.className) {
+    // Set neighborhood color based on population
+    case 'toggle population':
+      // if( )// 'Total 2012 Population'
+      setPopulationColor()
+      break; // end population
   }
 });
 
@@ -39,7 +60,7 @@ d3.json("/static/json/SRA2010tiger.geojson", function(error, data){
   /* Set neighborhood style */
   function setStyle(features) {
     return {
-      fillColor: d3.interpolateBlues(1),
+      fillColor: 'floralwhite',
       fillOpacity: 0.8,
       weight: 1,
       opacity: 0.65,
@@ -117,34 +138,48 @@ d3.json("/static/json/SRA2010tiger.geojson", function(error, data){
       ); // end addLayer
     }); // end forEach
   }); // end emissions csv
-
-  // Dynamically set neighborhood hue based on population
-  d3.csv("/static/csv/2012_San_Diego_Demographics_-_County_Population.csv", function(poperror,popdata){
-    if(poperror) print(poperror)    
-
-    var neighborhood,
-        neighborhoodList,
-        populationAvgs,
-        maxmin, max, min;
-
-    // Calculate averages for each population demographic
-    populationAvgs = getPopAvgs(popdata);
-
-    // Calculate max and min
-    maxmin = getPopMaxMin(popdata);
-
-    // Create color scale
-    svg = d3.select('body').append('svg')
-      .attr('class', 'canvas');
-    colorScale(maxmin[0], maxmin[1], svg);
-
-    // Set neighborhood fill color based on population
-    popdata.forEach(function(d) {
-      neighborhood = d['Area '].toLowerCase().replace(/\s+/g, '-');
-      $('.'+neighborhood).css('fill', d3.interpolateBlues(d['Total 2012 Population']/100000))
-    }); // end forEach()
-  }); // end population csv
 }); // end neighborhood json
+
+/* Dynamically set neighborhood layer fill color based on population demographics */
+function setPopulationColor() {
+  // color based on number
+  // Get array of checked demographic boxes
+  var display = $(".population:checkbox:checked"),
+      total,
+      id,
+      countyTotal,
+      countyTotalData,
+      normalize,
+      fillColor;
+
+  d3.csv("/static/csv/2012_San_Diego_Demographics_-_County_Population.csv", function(poperror,popdata){
+    countyTotalData = popdata[popdata.length-1]
+    popdata.forEach(function(d) {
+      countyTotal = parseInt(d['Total 2012 Population']);
+      total = 0; // Agreggate population total; we'll base the color off this number
+
+      // Get total population of checked boxes from each neighborhood
+      neighborhood = d['Area '].toLowerCase().replace(/\s+/g, '-');
+      for(var i = 0; i < display.length; i++) {
+        id = display[i].id.replace(/-/g, ' ')
+        total += parseInt(d[id])
+        countyTotal += parseInt(countyTotalData[id])
+
+        // If Total 2012 Population is on- that's IT it's OVER.
+        if(id === 'Total 2012 Population'){
+          break;
+        }
+      }
+
+      normalize = (total/countyTotal)*20
+      console.log(neighborhood, normalize, total, countyTotal)
+      $('.'+neighborhood).css('fill', function(d) { 
+        if(normalize > 0) return d3.interpolateBlues(normalize)
+        else return 'floralwhite'
+      });
+    });
+  });
+}
 
 /* Get averages for each population demographic */
 function getPopAvgs(data) {
@@ -185,6 +220,7 @@ function getPopMaxMin(data) {
 function colorScale(max, min, canvas) {
   var x = d3.scaleLinear()
     .domain([1, 10])
+    .range([min,max])
     .rangeRound([10, 270]);
 
   var color = d3.scaleThreshold()
@@ -206,7 +242,8 @@ function colorScale(max, min, canvas) {
       .attr("height", 8)
       .attr("x", function(d) { return x(d[0]); })
       .attr("width", function(d) { return x(d[1]) - x(d[0]); })
-      .attr("fill", function(d) { return color(d[0]); });
+      .attr("fill", function(d) { return color(d[0]); })
+      .attr("fill-opacity", 0.65 );
 
   g.append("text")
       .attr("class", "caption")
@@ -219,10 +256,36 @@ function colorScale(max, min, canvas) {
 
   g.call(d3.axisBottom(x)
       .tickSize(13)
-      .tickFormat(function(x, i) { return i ? x : x + "%"; })
+      .tickFormat(function(x, i) { return x; })
       .tickValues(color.domain()))
     .select(".domain")
       .remove();
+}
+
+function appendLegend() {
+  // Dynamically set neighborhood hue based on population
+  d3.csv("/static/csv/2012_San_Diego_Demographics_-_County_Population.csv", function(poperror,popdata){
+    if(poperror) print(poperror)    
+
+    var neighborhood,
+        neighborhoodList,
+        populationAvgs,
+        maxmin, max, min;
+
+    // Calculate averages for each population demographic
+    populationAvgs = getPopAvgs(popdata);
+
+    // Calculate max and min
+    maxmin = getPopMaxMin(popdata);
+
+    // Create color scale
+    svg = d3.select('body').append('svg')
+      .attr('width', 350)
+      .attr('height', 90)
+      .attr('class', 'canvas')
+    colorScale(maxmin[0], maxmin[1], svg);
+
+  }); // end population csv
 }
 
 function print(string) {

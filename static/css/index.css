@@ -31,3 +31,7 @@ body {
   opacity: 1;
   fill-opacity: 0.50;
 }
+
+.canvas {
+  position:absolute;
+}

@@ -30,6 +30,18 @@
 <body>
 
 <div id="sidebar" class="ui right sidebar vertical menu push visible">
+  <!-- Incom -->
+  <div class="item">
+    <div class="subheader">
+      <i class="dollar icon"></i>
+      Income
+    </div>
+    <div class="ui slider checkbox">
+      <input type="checkbox" id="income" name="income" class="toggle">
+      <label>Hide/Show</label>
+    </div>
+  </div>
+
   <!-- Pollutants -->
   <div class="item">
     <div class="subheader">
@@ -37,7 +49,7 @@
       Pollutants
     </div>
     <div class="ui slider checkbox">
-      <input type="checkbox" id="pollutant-CO2" name="pollutant-CO2">
+      <input type="checkbox" id="pollutant-CO2" name="pollutant-CO2" class="toggle">
       <label>CO2 emissions</label>
     </div>
   </div>
@@ -49,27 +61,27 @@
       Population
     </div>
     <div class="ui slider checkbox">
-      <input type="checkbox" id="population-overall" name="population-overall">
+      <input type="checkbox" id="Total-2012-Population" name="population-overall" class="toggle population">
       <label>Overall Population Density</label>
     </div>
     <div class="ui slider checkbox">
-      <input type="checkbox" id="population-black" name="population-black">
+      <input type="checkbox" id="Black" name="population-black" class="toggle population">
       <label>Black</label>
     </div>
     <div class="ui slider checkbox">
-      <input type="checkbox" id="population-latinx" name="population-latinx">
+      <input type="checkbox" id="Hispanic" name="population-latinx" class="toggle population">
       <label>Latinx</label>
     </div>
     <div class="ui slider checkbox">
-      <input type="checkbox" id="population-api" name="population-api">
+      <input type="checkbox" id="Asian/Pacific-Islander" name="population-api" class="toggle population">
       <label>Asian or Pacific Islander</label>
     </div>
     <div class="ui slider checkbox">
-      <input type="checkbox" id="population-other" name="population-other">
+      <input type="checkbox" id="Other-Race/-Ethnicity" name="population-other" class="toggle population">
       <label>Other</label>
     </div>
     <div class="ui slider checkbox">
-      <input type="checkbox" id="population-white" name="population-white">
+      <input type="checkbox" id="White" name="population-white" class="toggle population">
       <label>White</label>
     </div>
   </div>
@@ -81,11 +93,11 @@
       Disease
     </div>
     <div class="ui slider checkbox">
-      <input type="checkbox" id="disease-dementia-no" name="disease-dementia-no">
+      <input type="checkbox" id="disease-dementia-no" name="disease-dementia-no" class="toggle">
       <label>Dementia No. 2012</label>
     </div>
     <div class="ui slider checkbox">
-      <input type="checkbox" id="disease-dementia-rate" name="disease-dementia-rate">
+      <input type="checkbox" id="disease-dementia-rate" name="disease-dementia-rate" class="toggle">
       <label>Dementia Rate</label>
     </div>
   </div>
