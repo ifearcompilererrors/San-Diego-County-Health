@@ -26,6 +26,10 @@ appendLegend();
 // Toggle switch!
 $('.toggle').click(function(d) {
   switch(this.id) {
+    // Display neighborhood income text
+    case 'income':
+      displayIncome();
+      break; // end income
     // Display emissions layer
     case 'pollutant-CO2':
       if($('.co2').length == 0) {
@@ -54,7 +58,7 @@ d3.json("/static/json/SRA2010tiger.geojson", function(error, data){
   geojsonLayer.addLayer(
     L.geoJson(neighborhoodBounds, {
     style: setStyle,
-    onEachFeature: collectCentroids
+    onEachFeature: onEachFeatureGeoJson
   }));//.addTo(map);
 
   /* Set neighborhood style */
@@ -64,13 +68,61 @@ d3.json("/static/json/SRA2010tiger.geojson", function(error, data){
       fillOpacity: 0.8,
       weight: 1,
       opacity: 0.65,
-      className: 'neighborhood '+features.properties.NAME.toLowerCase().replace(/\s+/g, '-')
+      className: 'neighborhood '+massage(features.properties.NAME)
     }
+  }
+
+  function onEachFeatureGeoJson(features, layer) {
+    collectCentroids(features, layer);
+    getIncome(features, layer);
+  }
+
+  /* Display neighborhood median $$$ income $$$ */
+  function getIncome(features, layer) {
+    var avg,
+        neighborhood,
+        income,
+        cashMoney;
+
+    d3.csv("/static/csv/2012_San_Diego_Demographics_-_County_Vs_Subregional_Area_Income.csv", function(incomeError,incomeData){
+      avg = getIncomeAvg(incomeData);
+      neighborhood = massage(layer.feature.properties.NAME);
+      print(avg)
+
+      incomeData.forEach(function(d) {
+        cashMoney = parseInt(d['Median household income'].substr(1));
+        if(massage(d['Area']) === neighborhood) {
+          if(cashMoney <= avg/4) { 
+            console.log(neighborhood, '$');
+          }
+          else if(cashMoney <= avg/2) { 
+            console.log(neighborhood, '$$');
+          }
+          else if(cashMoney <= avg-(avg/4)) { 
+            console.log(neighborhood, '$$$');
+          }
+          else if(cashMoney >= avg) { 
+            console.log(neighborhood, '$$$$');
+          }
+        }
+      });
+      
+    });
+  }
+
+  /* Get San Diego median income average */
+  function getIncomeAvg(incomeData) {
+    var totalIncome = 0;
+    incomeData.forEach(function(d){
+      totalIncome += parseInt(d['Median household income'].substr(1));
+    });
+
+    return totalIncome/incomeData.length;
   }
 
   /* Get coordinates of the center of each neighborhood */
   function collectCentroids(features, layer) {
-    centroids[layer.feature.properties.NAME.toLowerCase().replace(/\s+/g, '-')] = 
+    centroids[massage(layer.feature.properties.NAME)] = 
       $.geo.centroid(layer.feature.geometry).coordinates;
   }
 
@@ -86,7 +138,7 @@ d3.json("/static/json/SRA2010tiger.geojson", function(error, data){
     // Create emissions layer
     csvdata.forEach(function(d) {
       co2Layer.addLayer(
-        L.circle(centroids[d['City'].toLowerCase().replace(/\s+/g, '-')].reverse(), {
+        L.circle(centroids[massage(d['City'])].reverse(), {
           radius: d['Total Reported Emissions']/100,
           className: 'pollutant co2',
         })
@@ -159,7 +211,7 @@ function setPopulationColor() {
       total = 0; // Agreggate population total; we'll base the color off this number
 
       // Get total population of checked boxes from each neighborhood
-      neighborhood = d['Area '].toLowerCase().replace(/\s+/g, '-');
+      neighborhood = massage(d['Area ']);
       for(var i = 0; i < display.length; i++) {
         id = display[i].id.replace(/-/g, ' ')
         total += parseInt(d[id])
@@ -172,13 +224,16 @@ function setPopulationColor() {
       }
 
       normalize = (total/countyTotal)*20
-      console.log(neighborhood, normalize, total, countyTotal)
       $('.'+neighborhood).css('fill', function(d) { 
         if(normalize > 0) return d3.interpolateBlues(normalize)
         else return 'floralwhite'
       });
     });
   });
+}
+
+function displayIncome() {
+  geojsonLayer
 }
 
 /* Get averages for each population demographic */
@@ -201,6 +256,7 @@ function getPopAvgs(data) {
   return demographic
 }
 
+/* Get population overall min and max data */
 function getPopMaxMin(data) {
   var population = [], max, min;
   data.forEach(function(d) {
@@ -217,6 +273,7 @@ function getPopMaxMin(data) {
   return [max, min]
 }
 
+/* Color scale delimeters and labels */
 function colorScale(max, min, canvas) {
   var x = d3.scaleLinear()
     .domain([1, 10])
@@ -262,8 +319,8 @@ function colorScale(max, min, canvas) {
       .remove();
 }
 
+/* Help folks understand their data with colors of the wind */
 function appendLegend() {
-  // Dynamically set neighborhood hue based on population
   d3.csv("/static/csv/2012_San_Diego_Demographics_-_County_Population.csv", function(poperror,popdata){
     if(poperror) print(poperror)    
 
@@ -287,6 +344,9 @@ function appendLegend() {
 
   }); // end population csv
 }
+
+/* 'TurN THis' into turn-this */
+function massage(string) { return string.toLowerCase().replace(/\s+/g, '-'); }
 
 function print(string) {
   console.log(string)
