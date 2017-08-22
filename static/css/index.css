@@ -35,3 +35,9 @@ body {
 .canvas {
   position:absolute;
 }
+
+.income-tooltip {
+  background-color: none;
+  background: none;
+  border: 0px;
+}

@@ -10,15 +10,14 @@ var latlong = [33.026142, -116.696322],
     geojsonLayer = L.layerGroup(),
     co2Layer = L.layerGroup(),
     closeTooltip,
-    svg,
-    popBits = 000000; // In all flavors c; total, black, latinx, api, other, white
+    svg;
 
 // Draw map
 L.mapbox.accessToken = 'pk.eyJ1IjoiaWZlYXJjb21waWxlcmVycm9ycyIsImEiOiJjaXUwOTFpdm0wMXNhMm9xcDZ1MmNiNmF0In0.ZVVzG5Amju9GXPtGPUwEwg';
 var map = L.mapbox.map('map', 'mapbox.streets')
   .setView(latlong, 9);
 // Display neighborhood layer
-geojsonLayer.addTo(map)
+// geojsonLayer.addTo(map)
 
 // Append population color legend
 appendLegend();
@@ -28,7 +27,7 @@ $('.toggle').click(function(d) {
   switch(this.id) {
     // Display neighborhood income text
     case 'income':
-      displayIncome();
+      displayIncome($('#income:checkbox:checked').length);
       break; // end income
     // Display emissions layer
     case 'pollutant-CO2':
@@ -59,7 +58,9 @@ d3.json("/static/json/SRA2010tiger.geojson", function(error, data){
     L.geoJson(neighborhoodBounds, {
     style: setStyle,
     onEachFeature: onEachFeatureGeoJson
-  }));//.addTo(map);
+  })).addTo(map);
+  
+  // wrapLayers(geojsonLayer.getLayers()[0]._layers, '<g class="neighborhood-group"></g>');
 
   /* Set neighborhood style */
   function setStyle(features) {
@@ -74,50 +75,14 @@ d3.json("/static/json/SRA2010tiger.geojson", function(error, data){
 
   function onEachFeatureGeoJson(features, layer) {
     collectCentroids(features, layer);
-    getIncome(features, layer);
+    // displayNames(features, layer);
+
   }
 
-  /* Display neighborhood median $$$ income $$$ */
-  function getIncome(features, layer) {
-    var avg,
-        neighborhood,
-        income,
-        cashMoney;
-
-    d3.csv("/static/csv/2012_San_Diego_Demographics_-_County_Vs_Subregional_Area_Income.csv", function(incomeError,incomeData){
-      avg = getIncomeAvg(incomeData);
-      neighborhood = massage(layer.feature.properties.NAME);
-      print(avg)
-
-      incomeData.forEach(function(d) {
-        cashMoney = parseInt(d['Median household income'].substr(1));
-        if(massage(d['Area']) === neighborhood) {
-          if(cashMoney <= avg/4) { 
-            console.log(neighborhood, '$');
-          }
-          else if(cashMoney <= avg/2) { 
-            console.log(neighborhood, '$$');
-          }
-          else if(cashMoney <= avg-(avg/4)) { 
-            console.log(neighborhood, '$$$');
-          }
-          else if(cashMoney >= avg) { 
-            console.log(neighborhood, '$$$$');
-          }
-        }
-      });
-      
-    });
-  }
-
-  /* Get San Diego median income average */
-  function getIncomeAvg(incomeData) {
-    var totalIncome = 0;
-    incomeData.forEach(function(d){
-      totalIncome += parseInt(d['Median household income'].substr(1));
-    });
-
-    return totalIncome/incomeData.length;
+  /* Display neighborhood names */
+  function displayNames(features, layer) {
+    var neighborhood = massage(features.properties.NAME);
+    var layerTooltip = layer.bindTooltip(massage_proper(neighborhood));
   }
 
   /* Get coordinates of the center of each neighborhood */
@@ -126,6 +91,7 @@ d3.json("/static/json/SRA2010tiger.geojson", function(error, data){
       $.geo.centroid(layer.feature.geometry).coordinates;
   }
 
+  // TODO: refactor!!!!; popup -> tooltip
   // Emissions data layer: circles at the center of a facility's neighborhood
   // Radius of circles are based on Total Reported Emissions
   d3.csv("/static/csv/2010_CO2_emissions.csv", function(csverror,csvdata){
@@ -139,7 +105,7 @@ d3.json("/static/json/SRA2010tiger.geojson", function(error, data){
     csvdata.forEach(function(d) {
       co2Layer.addLayer(
         L.circle(centroids[massage(d['City'])].reverse(), {
-          radius: d['Total Reported Emissions']/100,
+          radius: normalizeRadius(d),
           className: 'pollutant co2',
         })
         .on('mouseover', function(e) { // Add mouseover tooltip
@@ -192,6 +158,72 @@ d3.json("/static/json/SRA2010tiger.geojson", function(error, data){
   }); // end emissions csv
 }); // end neighborhood json
 
+/* Fit radius of emissions to map */
+function normalizeRadius(d) {
+  var r = d['Total Reported Emissions']/25;
+  if(r > 10000) return 20000
+  return r
+}
+
+/* Display neighborhood median $$$ income $$$ */
+function displayIncome(display) {
+  d3.csv("/static/csv/2012_San_Diego_Demographics_-_County_Vs_Subregional_Area_Income.csv", function(incomeError, incomeData){
+    var neighborhoods = geojsonLayer.getLayers()[0]._layers,
+        neighborhoodName,
+        neighborhood,
+        cashMoney,
+        greens;
+
+    for(var [key,value] of Object.entries(neighborhoods)) {
+      neighborhoodName = massage(value.feature.properties.NAME);
+      neighborhood = '.'+value.options.className.replace(/\s+/g, '.')
+
+      if(display) {
+          avg = getIncomeAvg(incomeData);
+          print(avg)
+
+          incomeData.forEach(function(incomeDatum) {
+            cashMoney = parseInt(incomeDatum['Median household income'].substr(1));
+            if(massage(incomeDatum['Area']) === neighborhoodName) {
+              if(cashMoney <= avg-20000) {
+                greens = '$'
+              }
+              else if(cashMoney <= avg-10000) { 
+                greens = '$$'
+              }
+              else if(cashMoney <= avg+10000) { 
+                greens = '$$$'
+              }
+              else if(cashMoney >= avg+20000) { 
+                greens = '$$$$'
+              }
+            }
+          }); // end incomeData.forEach()
+
+
+        value.bindTooltip(greens, {
+          permanent: true,
+          direction: 'center',
+          className: 'income-tooltip'
+        });
+      } // end if(display)
+      else {
+        value.unbindTooltip()
+      } // end else
+    } // end neighborhoods loop
+  }); // end csv
+} // end displayIncome
+
+/* Get San Diego median income average */
+function getIncomeAvg(incomeData) {
+  var totalIncome = 0;
+  incomeData.forEach(function(d){
+    totalIncome += parseInt(d['Median household income'].substr(1));
+  });
+
+  return totalIncome/incomeData.length;
+}
+
 /* Dynamically set neighborhood layer fill color based on population demographics */
 function setPopulationColor() {
   // color based on number
@@ -230,10 +262,6 @@ function setPopulationColor() {
       });
     });
   });
-}
-
-function displayIncome() {
-  geojsonLayer
 }
 
 /* Get averages for each population demographic */
@@ -345,8 +373,16 @@ function appendLegend() {
   }); // end population csv
 }
 
-/* 'TurN THis' into turn-this */
+/* 'TurN THis' into 'turn-this' */
 function massage(string) { return string.toLowerCase().replace(/\s+/g, '-'); }
+
+/* turn-this into Turn This */
+function massage_proper(string) { 
+  string = string.replace(/-/g, ' ')
+  return string.replace(/\w\S*/g, function(str){
+    return str.charAt(0).toUpperCase() + str.substr(1).toLowerCase();
+  });
+}
 
 function print(string) {
   console.log(string)
