@@ -7,7 +7,9 @@ var latlong = [33.026142, -116.696322],
     scale   = $(window).width() * 25,
     popup = new L.Popup({ autoPan: false }),
     centroids = {},
+    patternWeights = {},
     geojsonLayer = L.layerGroup(),
+    diseasedLayers = L.layerGroup(),
     co2Layer = L.layerGroup(),
     closeTooltip,
     svg;
@@ -16,8 +18,6 @@ var latlong = [33.026142, -116.696322],
 L.mapbox.accessToken = 'pk.eyJ1IjoiaWZlYXJjb21waWxlcmVycm9ycyIsImEiOiJjaXUwOTFpdm0wMXNhMm9xcDZ1MmNiNmF0In0.ZVVzG5Amju9GXPtGPUwEwg';
 var map = L.mapbox.map('map', 'mapbox.streets')
   .setView(latlong, 9);
-// Display neighborhood layer
-// geojsonLayer.addTo(map)
 
 // Append population color legend
 appendLegend();
@@ -25,10 +25,12 @@ appendLegend();
 // Toggle switch!
 $('.toggle').click(function(d) {
   switch(this.id) {
+
     // Display neighborhood income text
     case 'income':
       displayIncome($('#income:checkbox:checked').length);
       break; // end income
+
     // Display emissions layer
     case 'pollutant-CO2':
       if($('.co2').length == 0) {
@@ -37,33 +39,50 @@ $('.toggle').click(function(d) {
         map.removeLayer(co2Layer);
       }
       break; // end pollutant-CO2
+
+    // Display diesease layer
+    case 'disease-dementia-no':
+      if($('.dementia-no-layer').length == 0) {
+        map.addLayer(diseasedLayers);
+        setDiseaseStyle()
+      } else {
+        map.removeLayer(diseasedLayers);
+      }
+
     default: break;
   }
+
   switch(this.className) {
+    
     // Set neighborhood color based on population
     case 'toggle population':
-      // if( )// 'Total 2012 Population'
-      setPopulationColor()
+      setPopulationColor();
       break; // end population
   }
 });
 
 // Create layers
 // Neighborhood layer
-d3.json("/static/json/SRA2010tiger.geojson", function(error, data){
-  var neighborhoodBounds = data.features;
+d3.json("/static/json/SRA2010tiger.geojson", function(geoError, geoData){
+  var neighborhoodBounds = geoData.features;
 
   // Draw neighborhoods
   geojsonLayer.addLayer(
     L.geoJson(neighborhoodBounds, {
-    style: setStyle,
-    onEachFeature: onEachFeatureGeoJson
-  })).addTo(map);
-  
-  // wrapLayers(geojsonLayer.getLayers()[0]._layers, '<g class="neighborhood-group"></g>');
+      style: setGeoStyle,
+      onEachFeature: onEachFeatureGeoJson
+    })
+  ).addTo(map);
+
+  // Draw untextured/unfilled disease layers
+  diseasedLayers.addLayer(
+    L.geoJson(neighborhoodBounds, {
+      style: setDiseaseStyle
+    })
+  );
 
   /* Set neighborhood style */
-  function setStyle(features) {
+  function setGeoStyle(features) {
     return {
       fillColor: 'floralwhite',
       fillOpacity: 0.8,
@@ -73,10 +92,10 @@ d3.json("/static/json/SRA2010tiger.geojson", function(error, data){
     }
   }
 
+  /* Visualize data per layer */
   function onEachFeatureGeoJson(features, layer) {
     collectCentroids(features, layer);
-    // displayNames(features, layer);
-
+    displayNames(features, layer);
   }
 
   /* Display neighborhood names */
@@ -90,6 +109,21 @@ d3.json("/static/json/SRA2010tiger.geojson", function(error, data){
     centroids[massage(layer.feature.properties.NAME)] = 
       $.geo.centroid(layer.feature.geometry).coordinates;
   }
+
+  /* Set diseased layers style */
+  function setDiseaseStyle(features) {
+    return {
+      weight: 1,
+      className: 'disease dementia-no-layer dementia-no-'+massage(features.properties.NAME)
+    }
+  }
+
+  // Collect pattern weights for dementia no. 
+  d3.csv("/static/csv/2010-2012_Dementia.csv", function(disError,disData){
+    disData.forEach(function(d) {
+      patternWeights[massage(d.Geography)] = parseInt(d['2012 Dementia Death No.'])/10;
+    }); // end disData iteration
+  }); // end csv dementia
 
   // TODO: refactor!!!!; popup -> tooltip
   // Emissions data layer: circles at the center of a facility's neighborhood
@@ -105,6 +139,7 @@ d3.json("/static/json/SRA2010tiger.geojson", function(error, data){
     csvdata.forEach(function(d) {
       co2Layer.addLayer(
         L.circle(centroids[massage(d['City'])].reverse(), {
+          setZIndex: 500,
           radius: normalizeRadius(d),
           className: 'pollutant co2',
         })
@@ -264,6 +299,24 @@ function setPopulationColor() {
   });
 }
 
+/* Fill disease layer with disease pattern style */
+function setDiseaseStyle() {
+  var layers = diseasedLayers.getLayers()[0]._layers,
+      neighborhood;
+
+  for(var [key, value] of Object.entries(layers)) {
+    neighborhood = massage(value.feature.properties.NAME)
+
+    value.setStyle({
+      fillOpacity: 0.65,
+      fillPattern: new L.StripePattern({
+        weight: patternWeights[neighborhood],
+        opacity: 1,
+      }).addTo(map)
+    })
+  }
+}
+
 /* Get averages for each population demographic */
 function getPopAvgs(data) {
   var population = 0,
@@ -350,8 +403,6 @@ function colorScale(max, min, canvas) {
 /* Help folks understand their data with colors of the wind */
 function appendLegend() {
   d3.csv("/static/csv/2012_San_Diego_Demographics_-_County_Population.csv", function(poperror,popdata){
-    if(poperror) print(poperror)    
-
     var neighborhood,
         neighborhoodList,
         populationAvgs,
@@ -376,7 +427,7 @@ function appendLegend() {
 /* 'TurN THis' into 'turn-this' */
 function massage(string) { return string.toLowerCase().replace(/\s+/g, '-'); }
 
-/* turn-this into Turn This */
+/* 'turn-this' into 'Turn This' */
 function massage_proper(string) { 
   string = string.replace(/-/g, ' ')
   return string.replace(/\w\S*/g, function(str){
@@ -384,6 +435,7 @@ function massage_proper(string) {
   });
 }
 
+/* when ur too lazy during developmnt 2 typ */
 function print(string) {
-  console.log(string)
+  console.log(string);
 }
