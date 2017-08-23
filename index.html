@@ -2,240 +2,115 @@
 <html>
 <head>
   <meta charset="utf-8">
+  <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
 
-  <script src="plugins/d3/d3.min.js"></script>
-  <!--<script src="http://d3js.org/topojson.v0.min.js"></script>
-  <script src="schizophrenia.json"></script>
-  <script src="dementia.json"></script>
-  <script src="death.json"></script>-->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.2.13/semantic.min.css"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.2.0/dist/leaflet.css"
+   integrity="sha512-M2wvCLH6DSRazYeZRIm1JnYyh22purTM+FDB5CsyxtQJYeKq83arPe5wgbNmcFXGqiSH2XR8dT/fJISVA1r/zQ=="
+   crossorigin=""/>
+  <link href='https://api.mapbox.com/mapbox.js/v3.1.1/mapbox.css' rel='stylesheet' />
+  <link href='static/css/index.css' rel='stylesheet'/>
 
-  <script type="text/javascript" src="plugins/jquery/jquery-ui-1.11.2/external/jquery/jquery.js"></script>
-  <script src="plugins/jquery/jquery-ui-1.11.2/jquery-ui.min.js" type='text/javascript'></script>
-  <script src="plugins/jquery/jquery.csv-0.71.js" type='text/javascript'></script>
-  <script src="plugins/textures/textures.js" type="text/javascript"></script>
-  <!-- <script src="plugins/leaflet-0.7.3/leaflet.js" type="text/javascript"></script> -->
+  <script
+  src="https://code.jquery.com/jquery-3.2.1.min.js"
+  integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4="
+  crossorigin="anonymous"></script>
+  <script src="//code.jquery.com/jquery-2.2.4.min.js"></script>
+  <script src="//code.jquerygeo.com/jquery.geo-1.0.0-rc1.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/semantic-ui/2.2.10/semantic.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.2.0/dist/leaflet.js"
+   integrity="sha512-lInM/apFSqyy1o6s89K4iQUKg6ppXEgsVxT35HbzUupEVRh2Eu9Wdl4tHj7dZO0s1uvplcYGmt3498TtHq+log=="
+   crossorigin=""></script>
+  <script src='https://api.mapbox.com/mapbox.js/v3.1.1/mapbox.js'></script>
+  <script src="https://d3js.org/d3.v4.min.js"></script>
+  <script src="https://d3js.org/d3-scale-chromatic.v1.min.js"></script>
+  <script src="http://riccardoscalco.github.io/textures/textures.min.js"></script>
+  <script src="https://rawgit.com/riccardoscalco/textures/master/textures.min.js"></script>
+  <!-- <script src="https://cdn.rawgit.com/riccardoscalco/textures/master/textures.min.js"></script> -->
+  <script src="https://rawgit.com/teastman/Leaflet.pattern/master/dist/leaflet.pattern.js"></script>
+  <!-- <script src="https://cdn.rawgit.com/teastman/Leaflet.pattern/master/dist/leaflet.pattern.js"></script> -->
 
-  <title>San Diego Health</title>
 </head>
 
 <body>
 
-  <!-- <div class="legend">
-    Legend
-    <div class="key-values">
-      <div class="key none-disease"></div><span class="value">none</span>
-      <div class="key light-disease"></div><span class="value">light</span><br><br>
-      <div class="key med-disease"></div><span class="value">med</span>
-      <div class="key heavy-disease"></div><span class="value">heavy</span><br><br>
-      <div class="key none-environment"></div><span class="value">none</span>
-      <div class="key light-environment"></div><span class="value">light</span><br><br>
-      <div class="key med-environment"></div><span class="value">med</span>
-      <div class="key heavy-environment"></div><span class="value">heavy</span>      
+<div id="sidebar" class="ui right sidebar vertical menu push visible">
+  <!-- Incom -->
+  <div class="item">
+    <div class="subheader">
+      <i class="dollar icon"></i>
+      Income
     </div>
-    <div> -->      
-    <!-- </div>
-  </div> -->
-  <div id="dummy" style="max-height:0;max-width:0;"></div>
-
-  <button id="title-toggle" style="position:fixed;right:25%;top:5%;">Title on/off</button>
-  <button id="income-toggle" style="position:fixed;right:25%;top:10%;">Income on/off</button>
-
-  <div class="legend legend-color"></div>
-
-  <div class="ref">
-    <p class="ref-disease">Disease: <br><span></span></p>
-    <!-- <p class="ref-population">Population: <br><span></span></p> -->
-    <p class="ref-environment">Environment: <br><span></span></p>
+    <div class="ui slider checkbox">
+      <input type="checkbox" id="income" name="income" class="toggle">
+      <label>Hide/Show</label>
+    </div>
   </div>
 
-  <svg height="695" width="1000" style="background-color:;"></svg>
-
-  <div class="tab">
-    <select class="type-select">
-      <option value="tab-population">Population</option>
-      <option value="tab-disease">Disease</option>
-      <option value="tab-environmental">Environment</option>
-    </select>
+  <!-- Pollutants -->
+  <div class="item">
+    <div class="subheader">
+      <i class="industry icon"></i>
+      Pollutants
+    </div>
+    <div class="ui slider checkbox">
+      <input type="checkbox" id="pollutant-CO2" name="pollutant-CO2" class="toggle">
+      <label>CO2 emissions</label>
+    </div>
   </div>
 
-  <div class="info population-info">
-    <!-- <select class="population-select"> -->
-      <!-- <option value="none-population">Select population</option>
-      <option value="population">Overall Population Density 2012</option>
-      <option value="population-black">Black Population Density 2012</option>
-      <option value="population-hispanic">Hispanic Population Density 2012</option>
-      <option value="population-api">api Population Density 2012</option>
-      <option value="population-other">Other Population Density 2012</option>
-      <option value="population-white">White Population Density 2012</option> -->
-    <!-- </select> -->
-    Select population: <br><br>
-    <!-- <input type="checkbox"> color map <button>Get info</button><br><br> -->
-    <input class="population-input" type="checkbox" value="population-overall">
-      <button class="population-info" value="population-overall">Overall Population Density 2012</button><br>
-    <input class="population-input population-minority population-specific population-black" type="checkbox" value="population-black">
-      <button class="population-info" value="population-black">Black</button><br>
-    <input class="population-input population-minority population-specific population-l-c" type="checkbox" value="population-l-c">
-      <button class="population-info" value="population-l-c">Latin@/Chican@</button><br>
-    <input class="population-input population-minority population-specific population-api" type="checkbox" value="population-api">
-      <button class="population-info" value="population-api">Asian/Pacific Islander</button><br>
-    <input class="population-input population-minority population-specific population-other" type="checkbox" value="population-other">
-      <button class="population-info" value="population-other">Other</button><br>
-    <input class="population-input population-specific population-white" type="checkbox" value="population-white">
-      <button class="population-info" value="population-white">White</button><br>
-    <span id="population-hold"><span>
+  <!-- Population -->
+  <div class="item">
+    <div class="subheader">
+      <i class="users icon"></i>
+      Population
+    </div>
+    <div class="ui slider checkbox">
+      <input type="checkbox" id="Total-2012-Population" name="population-overall" class="toggle population">
+      <label>Overall Population Density</label>
+    </div>
+    <div class="ui slider checkbox">
+      <input type="checkbox" id="Black" name="population-black" class="toggle population">
+      <label>Black</label>
+    </div>
+    <div class="ui slider checkbox">
+      <input type="checkbox" id="Hispanic" name="population-latinx" class="toggle population">
+      <label>Latinx</label>
+    </div>
+    <div class="ui slider checkbox">
+      <input type="checkbox" id="Asian/Pacific-Islander" name="population-api" class="toggle population">
+      <label>Asian or Pacific Islander</label>
+    </div>
+    <div class="ui slider checkbox">
+      <input type="checkbox" id="Other-Race/-Ethnicity" name="population-other" class="toggle population">
+      <label>Other</label>
+    </div>
+    <div class="ui slider checkbox">
+      <input type="checkbox" id="White" name="population-white" class="toggle population">
+      <label>White</label>
+    </div>
   </div>
 
-  <div class="info disease-info">
-    <select class="disease-select">
-      <option value="none-disease">Select Disease</option>
-      <option value="dementia_no">Dementia No. 2012</option>
-      <option value="dementia_rate">Dementia Rate 2012</option>
-      <!-- <option value="population">Population Density 2012</option> -->
-    </select>
-    <button class="disease-toggle">Toggle</button>
-    <span id="disease-hold"><span>
+  <!-- Disease -->
+  <div class="item">
+    <div class="subheader">
+      <i class="first aid icon"></i>
+      Disease
+    </div>
+    <div class="ui slider checkbox">
+      <input type="checkbox" id="disease-dementia-no" name="disease-dementia-no" class="toggle">
+      <label>Dementia No. 2012</label>
+    </div>
+    <!--<div class="ui slider checkbox">
+      <input type="checkbox" id="disease-dementia-rate" name="disease-dementia-rate" class="toggle">
+      <label>Dementia Rate</label>
+    </div>-->
   </div>
-  
-  <div class="info environmental-info">
-    <select class="environmental-select">
-      <option value="none-environment">Select Pollutant</option>
-      <option value="CO2">CO2</option>
-    </select>
-    <span id="environmental-hold"><span>
-  </div>
+</div><!-- end sidebar -->
 
-  <!--         Leaflet v                   -->
-  <!-- <div id="map"></div> -->
-  <!-- end Leaflet v                       -->
-<!-- 
-  <script src='https://api.tiles.mapbox.com/mapbox.js/v2.1.9/mapbox.js'></script>
-  <link href='https://api.tiles.mapbox.com/mapbox.js/v2.1.9/mapbox.css' rel='stylesheet' /> -->
-  <script src="static/js/index.js" type="text/javascript"></script>
-  <link href="static/css/index.css" rel="stylesheet" type="text/css">
-  <!--<link href="plugins/leaflet-0.7.3/leaflet.css" rel="stylesheet" type="text/css">
-  <script src="plugins/leaflet-0.7.3/leaflet.js"></script>-->
+<div id="map" class="pusher"></div>
 
-  <!--<script type="text/javascript" src="static/json/SRA2010tiger_obj.js"></script>-->
-  <script type="text/javascript">
-  /////////////////////////////// Leaflet v /////////////////////////////////////
-  // var map = L.map('map').setView([32.982674, -116.50000], 9);
-  // L.tileLayer('https://{s}.tiles.mapbox.com/v3/{id}/{z}/{x}/{y}.png', {
-  //     maxZoom: 18,
-  //     attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, ' +
-  //       '<a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, ' +
-  //       'Imagery © <a href="http://mapbox.com">Mapbox</a>',
-  //     id: 'examples.map-i875mjb7'
-  //   }).addTo(map);
-
-
-
-  // // control that shows state info on hover
-  // var info = L.control();
-
-  // info.onAdd = function (map) {
-  //   this._div = L.DomUtil.create('div', 'info');
-  //   this.update();
-  //   return this._div;
-  // };
-
-
-  // info.update = function (props) {
-  //   this._div.innerHTML = '<h4>San Diego County</h4>' +  (props ?
-  //     '<b>' + props.name + '</b><br />' + /*props.density*/ + ' people / mi<sup>2</sup>'
-  //     : 'Hover over a state');
-  // };
-
-  // info.addTo(map);
-
-
-  // // get color depending on population density value
-  // function getColor() {
-  //   population();
-  // }
-
-  // function style(feature) {
-  //   return {
-  //     weight: 2,
-  //     opacity: 1,
-  //     color: 'white',
-  //     dashArray: '3',
-  //     fillOpacity: 0.7
-  //     // ,fillColor: getColor(feature.properties.density)
-  //     ,fillColor: getColor()
-  //     ,className: feature.properties.NAME.replace(/\s+/g, '-').toLowerCase()
-  //   };
-  // }
-
-  // function highlightFeature(e) {
-  //   var layer = e.target;
-
-  //   layer.setStyle({
-  //     weight: 5,
-  //     // color: this.attr("fill"),
-  //     dashArray: '',
-  //     fillOpacity: 0.7
-  //     ,fillColor: getColor()
-  //   });
-
-  //   if (!L.Browser.ie && !L.Browser.opera) {
-  //     layer.bringToFront();
-  //   }
-
-  //   info.update(layer.feature.properties);
-  // }
-
-  // var geojson;
-
-  // function resetHighlight(e) {
-  //   geojson.resetStyle(e.target);
-
-  //   info.update();
-  // }
-
-  // function zoomToFeature(e) {
-  //   map.fitBounds(e.target.getBounds());
-  // }
-
-  // function onEachFeature(feature, layer) {
-  //   layer.on({
-  //     mouseover: highlightFeature,
-  //     mouseout: resetHighlight,
-  //     click: zoomToFeature
-  //   });
-  // }
-
-  // geojson = L.geoJson(geoData, {
-  //   style: style,
-  //   onEachFeature: onEachFeature
-  // }).addTo(map);
-
-  // map.attributionControl.addAttribution('Population data &copy; <a href="http://census.gov/">US Census Bureau</a>');
-
-
-  // var legend = L.control({position: 'bottomright'});
-
-  // legend.onAdd = function (map) {
-
-  //   var div = L.DomUtil.create('div', 'info legend'),
-  //     grades = [0, 10, 20, 50, 100, 200, 500, 1000],
-  //     labels = [],
-  //     from, to;
-
-  //   for (var i = 0; i < grades.length; i++) {
-  //     from = grades[i];
-  //     to = grades[i + 1];
-
-  //     labels.push(
-  //       '<i style="background:' + getColor(from + 1) + '"></i> ' +
-  //       from + (to ? '&ndash;' + to : '+'));
-  //   }
-
-  //   div.innerHTML = labels.join('<br>');
-  //   return div;
-  // };
-
-  // legend.addTo(map);
-  </script>
-
+<script src="static/js/index.js"></script>
 </body>
+
 </html>
