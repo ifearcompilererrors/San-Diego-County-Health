@@ -1,6 +1,3 @@
-// For development o nNLyyyYYYYYYYYY!!!!!!/!?!11!?1!?11111
-var debugMode = true;
-
 var latlong = [33.026142, -116.696322],
     windowWidth   = $(window).width(),
     windowHeight  = $(window).height(),
