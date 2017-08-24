@@ -125,7 +125,7 @@ d3.json("https://cdn.rawgit.com/ifearcompilererrors/San-Diego-County-Health/gh-p
   // TODO: refactor!!!!; popup -> tooltip
   // Emissions data layer: circles at the center of a facility's neighborhood
   // Radius of circles are based on Total Reported Emissions
-  d3.csv("/static/csv/2010_CO2_emissions.csv", function(csverror,csvdata){
+  d3.csv("https://cdn.rawgit.com/ifearcompilererrors/San-Diego-County-Health/gh-pages/static/csv/2010_CO2_emissions.csv", function(csverror,csvdata){
     var pollutantNhood,
         neighborhood,
         pollutantToggle;
