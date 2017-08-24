@@ -1,1077 +1,509 @@
-var palette = ['rgb(110,170,190)','rgb(90,150,170)','rgb(70,130,150)','rgb(50,110,130)','rgb(30,90,110)','rgb(10,70,90)','rgb(230,230,250)'];
+// For development o nNLyyyYYYYYYYYY!!!!!!/!?!11!?1!?11111
+var debugMode = true;
 
-var centroids = {};
-var no_arr = {};
-var rate_arr = {};
-var area_color = {};
+var latlong = [33.026142, -116.696322],
+    windowWidth   = $(window).width(),
+    windowHeight  = $(window).height(),
+    scale   = $(window).width() * 25,
+    popup = new L.Popup({ autoPan: false }),
+    centroids = {},
+    patternWeights = {},
+    geojsonLayer = L.layerGroup(),
+    diseasedLayers = L.layerGroup(),
+    co2Layer = L.layerGroup(),
+    closeTooltip,
+    svg;
 
-var res;
+// Draw map
+L.mapbox.accessToken = 'pk.eyJ1IjoiaWZlYXJjb21waWxlcmVycm9ycyIsImEiOiJjaXUwOTFpdm0wMXNhMm9xcDZ1MmNiNmF0In0.ZVVzG5Amju9GXPtGPUwEwg';
+var map = L.mapbox.map('map', 'mapbox.streets')
+  .setView(latlong, 9);
 
-var dementia_rate = false;
-var dementia_no = false;
+// Append population color legend
+appendLegend();
 
-d3.json("/static/json/SRA2010tiger.geojson", function(error,data){
-  var group = d3.select("svg").selectAll("g")
-    .data(data.features)
-    .enter()
-    .append("g")
-    .attr("id", function(d){ return "g-"+(d.properties.NAME.replace(/\s+/g, '-').toLowerCase()); });
+// Toggle switch!
+$('.toggle').click(function(d) {
+  switch(this.id) {
 
-  function random(){ return Math.floor(Math.random()*10); }
+    // Display neighborhood income text
+    case 'income':
+      displayIncome($('#income:checkbox:checked').length);
+      break; // end income
 
-  var width = $(window).width();
-  var height = $(window).height();
-  var scale = $(window).width() * 25;
-
- var projection = d3.geo.mercator().scale(scale)
-                                    .center([-116.83874700000001,33.020922699224])
-                                    .translate([width/3,height-335]);
-  var path = d3.geo.path().projection(projection);
-  var color = d3.scale.category20();
-  
-  var areas = group.append("path")
-    .attr("d", path)
-    .attr("fill", "rgba(230,230,250,.7)")
-    .attr("class", "area")
-    .attr("style", "z-index:-9999999;")
-    .attr("id", function(d){ return d.properties.NAME.replace(/\s+/g, '-').toLowerCase(); })
-    .text(function(d){ return d.properties.NAME; });
-
-  group.append("title")
-    .text(function(d){ return d.properties.NAME; });
-
-  group.append("text")
-    .attr("transform", function(d) {  centroids[d.properties.NAME.replace(/\s+/g, '-').toLowerCase()] = path.centroid(d);
-                                      return "translate(" + path.centroid(d) + ")"; })
-    .attr("dy", ".35em")
-    .attr("text-anchor", "middle")
-    .attr("class", "text")
-    .text(function(d){ return d.properties.NAME; });
-
-  group.append("text")
-    .attr("class", function(d){ return "income "+d.properties.NAME.replace(/\s+/g, '-').toLowerCase(); })
-    .attr("id", function(d){ return d.properties.NAME.replace(/\s+/g, '-').toLowerCase(); })
-    .attr("text-anchor", "middle")
-    .attr("transform", function(d) { return "translate(" + path.centroid(d) + ")"; });
-
-  d3.csv("/static/csv/2012_San_Diego_Demographics_-_County_Vs_Subregional_Area_Income.csv", function(error,data){
-    var income = {};
-
-    d3.select("g").selectAll("path.area")
-      .data(data)
-      .enter()
-      .append("p")
-      .attr("id", function(d){  income[d["Area"].replace(/\s+/g, '-').toLowerCase()] = +(d["Median household income"].replace(/['$']/g, ''));
-                                return "income-"+d["Area"].replace(/\s+/g, '-').toLowerCase(); })
-      .text(function(d){ return d["Median household income"]; });
-
-    var cur = "";
-    var grades = [60000, 80000, 100000, 200000, 0];
-
-    for(var k = 0; k < $("path.area").length; k++)
-    {
-      cur = $("path.area")[k].id;
-      for(key in income)
-      {
-        if(cur == key)
-        {
-          if(income[key] < grades[0]) $("text."+cur).text("$").attr("style", "color:green;font-size:1em;");
-          else if(income[key] < grades[1]) $("text."+cur).text("$$").attr("style", "color:green;font-size:1em;");
-          else if(income[key] < grades[2]) $("text."+cur).text("$$$").attr("style", "color:green;font-size:1em;");
-          else if(income[key] < grades[3]) $("text."+cur).text("$$$$").attr("style", "color:green;font-size:1em;");
-        }
+    // Display emissions layer
+    case 'pollutant-CO2':
+      if($('.co2').length == 0) {
+        map.addLayer(co2Layer);
+      } else {
+        map.removeLayer(co2Layer);
       }
-    }
+      break; // end pollutant-CO2
 
-    $("text.carlsbad").text("$$").attr("style", "color:green;font-size:1em;");  
-
-    // Median household income
-    // [41936, 45498, 45873, 47821, 49948, 52607, 52692, 54417, 55429, 56626, 57946, 59014, 60434, 60838, 61044, 61751, 65489, 68676, 69316, 70503, 71155, 71475, 72011, 73746, 74965, 78300, 83094, 83290, 83438, 85004, 85455, 88991, 89108, 91041, 94927, 99889, 103305, 104474, 115528, 117506, 121168]
-
-    });
-
-  group.select("path").attr("fill",function(d,i){ return 'rgba(230,230,250,.7)'; })
-    .attr("stroke", "#fff");
-    // .attr("style", "opacity:.7;");
-
-  ////////////////////////////////////////// DISEASE //////////////////////////////////////////
-
-  var diseaseToggle = false;
-  var urlBG = {};
-
-  $(".disease-toggle").click(function(){
-    diseaseToggle = !diseaseToggle;
-    var cur = "";
-    if(diseaseToggle)
-    {
-      for(var i = 0; i < $("path").length; i++)
-      {
-        cur = $("path")[i].id;
-        urlBG[cur] = $("#"+cur).attr("fill");
+    // Display diesease layer
+    case 'disease-dementia-no':
+      if($('.dementia-no-layer').length == 0) {
+        map.addLayer(diseasedLayers);
+        setDiseaseStyle()
+      } else {
+        map.removeLayer(diseasedLayers);
       }
-      $("defs").hide();
-      colorMap(res);
-    }
-    else
-    {
-      // $("defs").parent().attr("fill", "");
-      $("defs").show();
-      for(key in urlBG)
-      {
-        $("#"+key).attr("fill", urlBG[key]);
-      }
-    }
-  });
-
-  $(".disease-select").change(function(){
-    switch(this.value){
-    case "dementia_no":
-      dementia_no = true;
-      dementia_rate = false;
-      $("#disease-hold").empty();
-      d3.csv("/static/csv/2010-2012_Dementia.csv", function(error,data){
-        d3.select("#disease-hold").selectAll("text")
-          .data(data)
-          .enter()
-          .append("p")
-          .text(function(d){ return d["Geography"] + " " + (+d["2012 Dementia Death No."]); })
-          .attr("class", function(d){ no_arr[d["Geography"].replace(/\s+/g, '-').toLowerCase()] = +d["2012 Dementia Death No."];
-                                      return d["Geography"] + " dementia-no hover";})
-          .attr("id", function(d){ return d["Geography"].replace(/\s+/g, '-').toLowerCase()});
-
-        var cur = "";
-
-        d3.json("/static/json/SRA2010tiger.geojson", function(error,data){
-          var disease_grades = [10, 30, 50, 70];
-
-          var t;
-          for(var i = 0; i < $("path.area").length; i++)
-          {
-            for(key in no_arr)
-            {
-              if($("path.area")[i].id == key)
-              {
-                cur = $("path.area")[i].id ;
-
-                // colorMap(res);
-
-                if     (no_arr[key] < disease_grades[0]) t = textures.lines().size(6).strokeWidth(1).stroke("black").background("rgb("+area_color[key][0]+","+area_color[key][1]+","+area_color[key][2]+")");
-                else if(no_arr[key] < disease_grades[1]) t = textures.lines().size(5).strokeWidth(1).stroke("black").background("rgb("+area_color[key][0]+","+area_color[key][1]+","+area_color[key][2]+")");
-                else if(no_arr[key] < disease_grades[2]) t = textures.lines().size(6).strokeWidth(2).stroke("black").background("rgb("+area_color[key][0]+","+area_color[key][1]+","+area_color[key][2]+")");
-                else if(no_arr[key] < disease_grades[3]) t = textures.lines().size(5).strokeWidth(2).stroke("black").background("rgb("+area_color[key][0]+","+area_color[key][1]+","+area_color[key][2]+")");
-
-                group.call(t);
-
-                if(cur != "mountain-empire" && cur != "pendleton" && cur != "coronado" && cur != "miramar" && cur != "jamul" && cur != "pauma" && cur != "palomar-julian" && cur != "laguna-pine-valley" && cur != "anza-borrego-springs" )
-                  $("#"+cur).attr("fill", t.url());
-              }
-            }
-          }
-          });
-
-        $(".hover").mouseenter(function(){
-          var id = this.id;
-          $("#"+id).attr("stroke", "black").attr("stroke-width", "2");
-
-          $(".hover").mouseleave(function(){
-            $("#"+id).attr("stroke", "").attr("stroke-width", "");
-          });
-
-        });
-
-        $(".ref-disease span").empty().text("Dementia No.");
-      });
-
-      break;
-
-      case "dementia_rate":
-        dementia_rate = true;
-        dementia_no = false;
-        $("#disease-hold").empty()
-        d3.csv("/static/csv/2010-2012_Dementia.csv", function(error,data){
-          d3.select("#disease-hold").selectAll("text")
-            .data(data)
-            .enter()
-            .append("p")
-            .text(function(d){ return d["Geography"] + " " + (+d["2012 Dementia Death Rate*"]); })
-            .attr("class", function(d){ rate_arr[d["Geography"].replace(/\s+/g, '-').toLowerCase()] = +d["2012 Dementia Death Rate*"];
-                                        return d["Geography"] + " dementia-rate hover";})
-            .attr("id", function(d){ return d["Geography"].replace(/\s+/g, '-').toLowerCase()});
-
-          var cur = "";
-
-          d3.json("/static/json/SRA2010tiger.geojson", function(error,data){
-            var disease_grades = [10, 20, 30, 70];
-
-            var t;
-
-            for(var i = 0; i < $("path.area").length; i++)
-            {
-              for(key in rate_arr)
-              {
-                // console.log(rate_arr[key])
-                if($("path.area")[i].id == key)
-                {
-                  cur = $("path.area")[i].id ;
-
-                  // colorMap(res);
-
-                  if     (rate_arr[key] < disease_grades[0]) t = textures.lines().size(6).strokeWidth(1).stroke("black").background("rgb("+area_color[key][0]+","+area_color[key][1]+","+area_color[key][2]+")");
-                  else if(rate_arr[key] < disease_grades[1]) t = textures.lines().size(5).strokeWidth(1).stroke("black").background("rgb("+area_color[key][0]+","+area_color[key][1]+","+area_color[key][2]+")");
-                  else if(rate_arr[key] < disease_grades[2]) t = textures.lines().size(6).strokeWidth(2).stroke("black").background("rgb("+area_color[key][0]+","+area_color[key][1]+","+area_color[key][2]+")");
-                  else if(rate_arr[key] < disease_grades[3]) t = textures.lines().size(5).strokeWidth(2).stroke("black").background("rgb("+area_color[key][0]+","+area_color[key][1]+","+area_color[key][2]+")");
-
-                  group.call(t);
-
-                  // $("#"+cur).attr("fill", t.url()).attr("class", "dementia-rate-strokes");
-                  $("#"+cur).attr("fill", t.url());
-                }
-              }
-            }
-          });
-
-          $(".hover").mouseenter(function(){
-            var id = this.id;
-            $("#"+id).attr("stroke", "black").attr("stroke-width", "2");
-          
-            $(".hover").mouseleave(function(){
-              $("#"+id).attr("stroke", "").attr("stroke-width", "");
-            });
-          
-          });
-        });
-        $(".ref-disease span").empty().text("Dementia Rate");
-        
-        break;
-
-      case "none-disease":
-        d3.csv("/static/csv/2012_San_Diego_Demographics_-_County_Population.csv", function(error,data){
-          // d3.select("svg").selectAll("path.area")
-          //   .data(data)
-          //   .attr("fill", function(d){ return 'rgba(230,230,250,.2)'; });
-          $(".dementia").hide();
-        });
-        $(".legend-color").empty().hide();
-        break;
-
-      default: break;
-    }
-  });
-
-  //////////////////////////////////////////////// POPULATION COLORS ////////////////////////////////////////////////
-
-
-  var cur_palette = [ [0,0,0], [0,0,0], [0,0,0], [0,0,0], [0,0,0], [0,0,0] ];
-  var pop_palette = [[130,210,130],[90,160,90],[70,130,70],[50,100,50],[30,70,30],[10,40,10]];
-  var cur_grades = [0, 0, 0, 0, 0, 0];
-  var pop_arr_input = {};
-  var pop = [7700, 18000, 80000, 220000, 680000, 3200000];
-
-  function resetPopArr(){
-  d3.csv("/static/csv/2012_San_Diego_Demographics_-_County_Population.csv", function(error,data){
-    d3.select("#dummy").selectAll("text")
-      .data(data)
-      .enter()
-      .append("p")
-      .text(function(d){ return d["Area "] + " " + (+d["Black"]); })
-      .attr("class", function(d){ pop_arr_input[d["Area "].replace(/\s+/g, '-').toLowerCase()] = 0;
-                                  return d["Area "] + " population hover";})
-      .attr("id", function(d){ return d["Area "].replace(/\s+/g, '-').toLowerCase()});
-
-    $("#dummy").empty();
-  });
-  }
-
-  resetPopArr();
-
-  function calc(grades, offset, adjust){
-  if(!adjust){
-    for(i in grades){
-      for(j in pop_palette[i]){
-        cur_palette[i][j] = cur_palette[i][j] + (offset + pop_palette[i][j]);
-        cur_palette[i][j] = Math.round(cur_palette[i][j]/2)
-      }
-      cur_grades[i] += grades[i];
-    }
-  }
-  else{
-    for(i in grades){
-      for(j in pop_palette[i]){
-        cur_palette[i][j] = Math.round(cur_palette[i][j] * 2);
-        cur_palette[i][j] = cur_palette[i][j] - (offset + pop_palette[i][j]);
-        if($(".population-input:checked").length == 0) cur_palette[i][j] = 0;
-      }
-      cur_grades[i] -= grades[i];
-    }
-  }
-
-  for(m in cur_palette){
-    console.log("cur_palette "+m+": "+cur_palette[m]);
-  }
-
-  console.log("cur_grades: " + cur_grades);
-  console.log("cur_palette: "+ cur_palette);
-  console.log("pop_arr_input['escondido']: " + pop_arr_input["escondido"]);
-
-  return cur_palette;
-  }
-
-  function legend(str){
-
-  $(".legend-color").empty().show();
-
-  for(var i = 0; i < cur_palette.length-1; i++)
-  {
-    $(".legend-color").append("<span class='value'> < "+cur_grades[i]+"</span><div class='key' style='background-color:rgb("+cur_palette[i][0]+","+cur_palette[i][1]+","+cur_palette[i][2]+");'></div>");
-  }
-
-  $(".ref-population span").empty().text(str);
-  }
-
-  $(".population-input").click(function(){
-  switch(this.value){
-    case "population-overall":
-      var disabled = $(".population-specific").attr("disabled");
-      $(".population-specific").attr("disabled", !disabled);
-      if ( $("input.population-overall:checked").length == 1 ){
-        population();
-      }
-      else if ( $("input.population-overall:checked").length != 1 ){
-        colorMap(res);
-      }
-      break;
-    
-    case "population-black":
-      var grades = [100, 1000, 5000, 10000, 60000, 200000, 0];
-      var offset = 20;
-      if ( $("input.population-black:checked").length == 1 ){
-        d3.csv("/static/csv/2012_San_Diego_Demographics_-_County_Population.csv", function(error,data){
-          // var pop_arr = {};
-          
-          d3.select("#dummy").selectAll("text")
-            .data(data)
-            .enter()
-            .append("p")
-            .text(function(d){ return d["Area "] + " " + (+d["Black"]); })
-            .attr("class", function(d){ pop_arr_input[d["Area "].replace(/\s+/g, '-').toLowerCase()] += +d["Black"];
-                                        return d["Area "] + " population hover";})
-            .attr("id", function(d){ return d["Area "].replace(/\s+/g, '-').toLowerCase()});
-
-          $("#dummy").empty();
-
-          var cur = "";
-          res = calc(grades,offset,false);
-          colorMap(res);
-          legend("Black");
-        });
-      }
-      else if ( $("input.population-black:checked").length != 1 ){
-        d3.csv("/static/csv/2012_San_Diego_Demographics_-_County_Population.csv", function(error,data){
-          // var pop_arr = {};
-          
-          d3.select("#dummy").selectAll("text")
-            .data(data)
-            .enter()
-            .append("p")
-            .text(function(d){ return d["Area "] + " " + (+d["Black"]); })
-            .attr("class", function(d){ pop_arr_input[d["Area "].replace(/\s+/g, '-').toLowerCase()] -= +d["Black"];
-                                        return d["Area "] + " population hover";})
-            .attr("id", function(d){ return d["Area "].replace(/\s+/g, '-').toLowerCase()});
-
-          $("#dummy").empty();
-
-          var cur = "";
-          res = calc(grades,offset,true);
-          colorMap(res);
-          legend("Black");
-        });
-      }
-      break;
-
-   case "population-l-c":
-      var grades = [2000, 5000, 10000, 50000, 100000, 300000];
-      var offset = 3;
-      if ( $("input.population-l-c:checked").length == 1 ){
-        d3.csv("/static/csv/2012_San_Diego_Demographics_-_County_Population.csv", function(error,data){
-          // var pop_arr_input = {};
-          
-          d3.select("#dummy").selectAll("text")
-            .data(data)
-            .enter()
-            .append("p")
-            .text(function(d){ return d["Area "] + " " + (+d["Hispanic"]); })
-            .attr("class", function(d){ pop_arr_input[d["Area "].replace(/\s+/g, '-').toLowerCase()] += +d["Hispanic"];
-                                        return d["Area "] + " population hover";})
-            .attr("id", function(d){ return d["Area "].replace(/\s+/g, '-').toLowerCase()});
-
-          $("#dummy").empty();
-
-          var cur = "";
-          res = calc(grades,offset,false);
-          // $("#dummy").html(res);
-          colorMap(res);
-          legend("Hispanic");
-        });
-      }
-      else if ( $("input.population-l-c:checked").length != 1 ){
-        d3.csv("/static/csv/2012_San_Diego_Demographics_-_County_Population.csv", function(error,data){
-          // var pop_arr = {};
-          
-          d3.select("#dummy").selectAll("text")
-            .data(data)
-            .enter()
-            .append("p")
-            .text(function(d){ return d["Area "] + " " + (+d["Hispanic"]); })
-            .attr("class", function(d){ pop_arr_input[d["Area "].replace(/\s+/g, '-').toLowerCase()] -= +d["Hispanic"];
-                                        return d["Area "] + " population hover";})
-            .attr("id", function(d){ return d["Area "].replace(/\s+/g, '-').toLowerCase()});
-
-          $("#dummy").empty();
-
-          var cur = "";
-          res = calc(grades,offset,true);
-          colorMap(res);
-          legend("Hispanic");
-        });
-      }
-      break;
-
-    case "population-api":
-      var grades = [100, 1000, 10000, 50000, 100000, 500000];
-      var offset = 5;
-      if ( $("input.population-api:checked").length == 1 ){
-        d3.csv("/static/csv/2012_San_Diego_Demographics_-_County_Population.csv", function(error,data){
-          // var pop_arr_input = {};
-          
-          d3.select("#dummy").selectAll("text")
-            .data(data)
-            .enter()
-            .append("p")
-            .text(function(d){ return d["Area "] + " " + (+d["Asian/Pacific Islander"]); })
-            .attr("class", function(d){ pop_arr_input[d["Area "].replace(/\s+/g, '-').toLowerCase()] += +d["Asian/Pacific Islander"];
-                                        return d["Area "] + " population hover";})
-            .attr("id", function(d){ return d["Area "].replace(/\s+/g, '-').toLowerCase()});
-
-          $("#dummy").empty();
-
-          var cur = "";
-          res = calc(grades,offset,false);
-          // $("#dummy").html(res);
-          colorMap(res);
-          legend("Asian/Pacific Islander");
-        });
-      }
-      else if ( $("input.population-api:checked").length != 1 ){
-        d3.csv("/static/csv/2012_San_Diego_Demographics_-_County_Population.csv", function(error,data){
-          // var pop_arr = {};
-          
-          d3.select("#dummy").selectAll("text")
-            .data(data)
-            .enter()
-            .append("p")
-            .text(function(d){ return d["Area "] + " " + (+d["Asian/Pacific Islander"]); })
-            .attr("class", function(d){ pop_arr_input[d["Area "].replace(/\s+/g, '-').toLowerCase()] -= +d["Asian/Pacific Islander"];
-                                        return d["Area "] + " population hover";})
-            .attr("id", function(d){ return d["Area "].replace(/\s+/g, '-').toLowerCase()});
-
-          $("#dummy").empty();
-
-          var cur = "";
-          res = calc(grades,offset,true);
-          colorMap(res);
-          legend("Asian/Pacific Islander");
-        });
-      }
-      break;
-
-    case "population-other":
-      var grades = [500, 1000, 5000, 10000, 20000, 200000];
-      var offset = 10;
-      if ( $("input.population-other:checked").length == 1 ){
-        d3.csv("/static/csv/2012_San_Diego_Demographics_-_County_Population.csv", function(error,data){
-          // var pop_arr_input = {};
-          
-          d3.select("#dummy").selectAll("text")
-            .data(data)
-            .enter()
-            .append("p")
-            .text(function(d){ return d["Area "] + " " + (+d["Other Race/ Ethnicity"]); })
-            .attr("class", function(d){ pop_arr_input[d["Area "].replace(/\s+/g, '-').toLowerCase()] += +d["Other Race/ Ethnicity"];
-                                        return d["Area "] + " population hover";})
-            .attr("id", function(d){ return d["Area "].replace(/\s+/g, '-').toLowerCase()});
-
-          $("#dummy").empty();
-
-          var cur = "";
-          res = calc(grades,offset,false);
-          // $("#dummy").html(res);
-          colorMap(res);
-          legend("Other Race/ Ethnicity");
-        });
-      } else if ( $("input.population-other:checked").length != 1 ){
-        d3.csv("/static/csv/2012_San_Diego_Demographics_-_County_Population.csv", function(error,data){
-          // var pop_arr = {};
-          
-          d3.select("#dummy").selectAll("text")
-            .data(data)
-            .enter()
-            .append("p")
-            .text(function(d){ return d["Area "] + " " + (+d["Other Race/ Ethnicity"]); })
-            .attr("class", function(d){ pop_arr_input[d["Area "].replace(/\s+/g, '-').toLowerCase()] -= +d["Other Race/ Ethnicity"];
-                                        return d["Area "] + " population hover";})
-            .attr("id", function(d){ return d["Area "].replace(/\s+/g, '-').toLowerCase()});
-
-          $("#dummy").empty();
-
-          var cur = "";
-          res = calc(grades,offset,true);
-          colorMap(res);
-          legend("Other Race/ Ethnicity");
-        });
-      }
-      break;
-
-    case "population-white":
-      var grades = [5000, 10000, 50000, 100000, 500000, 2000000];
-      if ( $("input.population-white:checked").length == 1 ){
-        d3.csv("/static/csv/2012_San_Diego_Demographics_-_County_Population.csv", function(error,data){
-          // var pop_arr_input = {};
-          
-          d3.select("#dummy").selectAll("text")
-            .data(data)
-            .enter()
-            .append("p")
-            .text(function(d){ return d["Area "] + " " + (+d["White"]); })
-            .attr("class", function(d){ pop_arr_input[d["Area "].replace(/\s+/g, '-').toLowerCase()] += +d["White"];
-                                        return d["Area "] + " population hover";})
-            .attr("id", function(d){ return d["Area "].replace(/\s+/g, '-').toLowerCase()});
-
-          $("#dummy").empty();
-
-          var cur = "";
-          res = calc(grades,1,false);
-          // $("#dummy").html(res);
-          colorMap(res);
-          legend("White");
-        });
-      } else if ( $("input.population-white:checked").length != 1 ){
-        d3.csv("/static/csv/2012_San_Diego_Demographics_-_County_Population.csv", function(error,data){
-          // var pop_arr = {};
-          
-          d3.select("#dummy").selectAll("text")
-            .data(data)
-            .enter()
-            .append("p")
-            .text(function(d){ return d["Area "] + " " + (+d["White"]); })
-            .attr("class", function(d){ pop_arr_input[d["Area "].replace(/\s+/g, '-').toLowerCase()] -= +d["White"];
-                                        return d["Area "] + " population hover";})
-            .attr("id", function(d){ return d["Area "].replace(/\s+/g, '-').toLowerCase()});
-
-          $("#dummy").empty();
-
-          var cur = "";
-          res = calc(grades,1,true);
-          colorMap(res);
-          legend("White");
-        });
-      }
-      break;
-    }
-  });
-
-
-  //////////////////////////////////////////////// POPULATION INFO ////////////////////////////////////////////////
-
-  function colorMap(popSpecArr){
-    for(var i = 0; i < $("path.area").length; i++){
-      for(key in pop_arr_input){
-        if($("path.area")[i].id == key){
-          cur = $("path.area")[i].id;
-          if( pop_arr_input[key] < cur_grades[0]  ) { $("#"+cur).attr("fill", 'rgb('+(popSpecArr[0][0])+','+(popSpecArr[0][1])+','+(popSpecArr[0][2])+')').attr("stroke", ""); area_color[key] = popSpecArr[0]; }
-          else if( pop_arr_input[key] < cur_grades[1]  ) { $("#"+cur).attr("fill", 'rgb('+(popSpecArr[1][0])+','+(popSpecArr[1][1])+','+(popSpecArr[1][2])+')').attr("stroke", ""); area_color[key] = popSpecArr[1]; }
-          else if( pop_arr_input[key] < cur_grades[2]  ) { $("#"+cur).attr("fill", 'rgb('+(popSpecArr[2][0])+','+(popSpecArr[2][1])+','+(popSpecArr[2][2])+')').attr("stroke", ""); area_color[key] = popSpecArr[2]; }
-          else if( pop_arr_input[key] < cur_grades[3]  ) { $("#"+cur).attr("fill", 'rgb('+(popSpecArr[3][0])+','+(popSpecArr[3][1])+','+(popSpecArr[3][2])+')').attr("stroke", ""); area_color[key] = popSpecArr[3]; }
-          else if( pop_arr_input[key] < cur_grades[4]  ) { $("#"+cur).attr("fill", 'rgb('+(popSpecArr[4][0])+','+(popSpecArr[4][1])+','+(popSpecArr[4][2])+')').attr("stroke", ""); area_color[key] = popSpecArr[4]; }
-          else if( pop_arr_input[key] < cur_grades[5]*2  ) { $("#"+cur).attr("fill", 'rgb('+(popSpecArr[5][0])+','+(popSpecArr[5][1])+','+(popSpecArr[5][2])+')').attr("stroke", ""); area_color[key] = popSpecArr[5]; }
-          // else if( pop_arr_input[key] == gradesArr[6]  ) $("#"+cur).attr("fill", 'rgb('+(popSpecArr[6][0])+','+(popSpecArr[6][1])+','+(popSpecArr[6][0])+')').attr("stroke", "");
-          // else if( pop_arr_input[key] == null  ) $("#"+cur).attr("fill", 'rgb('+(popSpecArr[6][0])+','+(popSpecArr[6][1])+','+(popSpecArr[6][0])+')').attr("stroke", "");
-          else $("#"+cur).attr("fill", "rgba(230,230,250,.7)").attr("stroke", "");
-        }
-      }     
-    }
-    dementia();
-  }
-
-  function dementia(){
-    if(dementia_rate)
-    {
-      d3.csv("/static/csv/2010-2012_Dementia.csv", function(error,data){
-        d3.select("#disease-hold").selectAll("text")
-          .data(data)
-          .enter()
-          .append("p")
-          .text(function(d){ return d["Geography"] + " " + (+d["2012 Dementia Death Rate*"]); })
-          .attr("class", function(d){ rate_arr[d["Geography"].replace(/\s+/g, '-').toLowerCase()] = +d["2012 Dementia Death Rate*"];
-                                      return d["Geography"] + " dementia-rate hover";})
-          .attr("id", function(d){ return d["Geography"].replace(/\s+/g, '-').toLowerCase()});
-
-        var cur = "";
-
-        d3.json("/static/json/SRA2010tiger.geojson", function(error,data){
-          var disease_grades = [10, 20, 30, 70];
-
-          var t;
-
-          for(var i = 0; i < $("path.area").length; i++)
-          {
-            for(key in rate_arr)
-            {
-              // console.log(rate_arr[key])
-              if($("path.area")[i].id == key)
-              {
-                cur = $("path.area")[i].id ;
-
-                if     (rate_arr[key] < disease_grades[0]) t = textures.lines().size(6).strokeWidth(1).stroke("rgba(10,10,10,.3)").background("rgb("+area_color[key][0]+","+area_color[key][1]+","+area_color[key][2]+")");
-                else if(rate_arr[key] < disease_grades[1]) t = textures.lines().size(5).strokeWidth(1).stroke("rgba(10,10,10,.3)").background("rgb("+area_color[key][0]+","+area_color[key][1]+","+area_color[key][2]+")");
-                else if(rate_arr[key] < disease_grades[2]) t = textures.lines().size(6).strokeWidth(2).stroke("rgba(10,10,10,.5)").background("rgb("+area_color[key][0]+","+area_color[key][1]+","+area_color[key][2]+")");
-                else if(rate_arr[key] < disease_grades[3]) t = textures.lines().size(5).strokeWidth(2).stroke("rgba(10,10,10,.5)").background("rgb("+area_color[key][0]+","+area_color[key][1]+","+area_color[key][2]+")");
-
-                group.call(t);
-
-                // $("#"+cur).attr("fill", t.url()).attr("class", "dementia-rate-strokes");
-                $("#"+cur).attr("fill", t.url());
-              }
-            }
-          }
-        });
-      });
-    }
-    else if(dementia_no)
-    {
-      d3.csv("/static/csv/2010-2012_Dementia.csv", function(error,data){
-        d3.select("#disease-hold").selectAll("text")
-          .data(data)
-          .enter()
-          .append("p")
-          .text(function(d){ return d["Geography"] + " " + (+d["2012 Dementia Death No."]); })
-          .attr("class", function(d){ no_arr[d["Geography"].replace(/\s+/g, '-').toLowerCase()] = +d["2012 Dementia Death No."];
-                                      return d["Geography"] + " dementia-no hover";})
-          .attr("id", function(d){ return d["Geography"].replace(/\s+/g, '-').toLowerCase()});
-
-        var cur = "";
-
-        d3.json("/static/json/SRA2010tiger.geojson", function(error,data){
-          var disease_grades = [10, 30, 50, 70];
-
-          var t;
-          for(var i = 0; i < $("path.area").length; i++)
-          {
-            for(key in no_arr)
-            {
-              if($("path.area")[i].id == key)
-              {
-                cur = $("path.area")[i].id ;
-
-                if (no_arr[key] == 0) console.log(key);
-
-                if     (no_arr[key] < disease_grades[0]) t = textures.lines().size(6).strokeWidth(1).stroke("rgba(10,10,10,.3)").background("rgb("+area_color[key][0]+","+area_color[key][1]+","+area_color[key][2]+")");
-                else if(no_arr[key] < disease_grades[1]) t = textures.lines().size(5).strokeWidth(1).stroke("rgba(10,10,10,.3)").background("rgb("+area_color[key][0]+","+area_color[key][1]+","+area_color[key][2]+")");
-                else if(no_arr[key] < disease_grades[2]) t = textures.lines().size(6).strokeWidth(2).stroke("rgba(10,10,10,.2)").background("rgb("+area_color[key][0]+","+area_color[key][1]+","+area_color[key][2]+")");
-                else if(no_arr[key] < disease_grades[3]) t = textures.lines().size(5).strokeWidth(2).stroke("rgba(10,10,10,.2)").background("rgb("+area_color[key][0]+","+area_color[key][1]+","+area_color[key][2]+")");
-                else if(no_arr[key] < 1) console.log("hAhAhah");//t = textures.lines().size(0).strokeWidth(0).background("rgb("+area_color[key][0]+","+area_color[key][1]+","+area_color[key][2]+")");
-
-                group.call(t);
-
-                if(cur != "mountain-empire" && cur != "pendleton" && cur != "coronado" && cur != "miramar" && cur != "jamul" && cur != "pauma" && cur != "palomar-julian" && cur != "laguna-pine-valley" && cur != "anza-borrego-springs" )
-                  $("#"+cur).attr("fill", t.url());
-              }
-            }
-          }
-        });
-      });
-    }
-  }
-
-  $(".population-info").click(function(){
-    switch(this.value){
-      case "population-overall":
-        $("#population-hold").empty()
-        d3.csv("/static/csv/2012_San_Diego_Demographics_-_County_Population.csv", function(error,data){
-          var pop_arr = {};
-
-          d3.select("#population-hold").selectAll("text")
-            .data(data)
-            .enter()
-            .append("p")
-            .text(function(d){ return d["Area "] + " " + (+d["Total 2012 Population"]); })
-            .attr("class", function(d){ pop_arr[d["Area "].replace(/\s+/g, '-').toLowerCase()] = +d["Total 2012 Population"];
-                                        return d["Area "].replace(/\s+/g, '-').toLowerCase() + " population hover";})
-            .attr("id", function(d){ return d["Area "].replace(/\s+/g, '-').toLowerCase()});
-
-        var grades = [5000, 10000, 50000, 100000, 200000, 5000000, 0];
-
-        $(".hover").mouseenter(function(){
-            var id = this.id;
-            $("#"+id).attr("stroke", "black").attr("stroke-width", "2");
-            $(".hover").mouseleave(function(){
-              $("#"+id).attr("stroke", "").attr("stroke-width", "");
-            });
-          });
-
-          $(".legend-color").empty().show();
-
-          for(var i = 0; i < palette.length-1; i++)
-          {
-            $(".legend-color").append("<span class='value'>"+grades[i]+"</span><div class='key' style='background-color:"+palette[i]+";'></div>");
-          }
-
-          $(".ref-population span").empty().text("Overall");
-        });
-        break;
-
-      case "population-black":
-        $("#population-hold").empty()
-        d3.csv("/static/csv/2012_San_Diego_Demographics_-_County_Population.csv", function(error,data){
-          var pop_arr = {};
-
-          d3.select("#population-hold").selectAll("text")
-            .data(data)
-            .enter()
-            .append("p")
-            .text(function(d){ return d["Area "] + " " + (+d["Black"]); })
-            .attr("class", function(d){ pop_arr[d["Area "].replace(/\s+/g, '-').toLowerCase()] = +d["Black"];
-                                        return d["Area "].replace(/\s+/g, '-').toLowerCase() + " population hover";})
-            .attr("id", function(d){ return d["Area "].replace(/\s+/g, '-').toLowerCase()});
-
-          var grades = [100, 1000, 5000, 10000, 60000, 200000, 0];
-
-          $(".hover").mouseenter(function(){
-            var id = this.id;
-            $("#"+id).attr("stroke", "black").attr("stroke-width", "2");
-            $(".hover").mouseleave(function(){
-              $("#"+id).attr("stroke", "").attr("stroke-width", "");
-            });
-          });
-        });
-        break;
-      
-      case "population-l-c":
-        $("#population-hold").empty()
-        d3.csv("/static/csv/2012_San_Diego_Demographics_-_County_Population.csv", function(error,data){
-          var pop_arr = {};
-
-          d3.select("#population-hold").selectAll("text")
-            .data(data)
-            .enter()
-            .append("p")
-            .text(function(d){ return d["Area "] + " " + (+d["Hispanic"]); })
-            .attr("class", function(d){ pop_arr[d["Area "].replace(/\s+/g, '-').toLowerCase()] = +d["Hispanic"];
-                                        return d["Area "].replace(/\s+/g, '-').toLowerCase() + " population hover";})
-            .attr("id", function(d){ return d["Area "].replace(/\s+/g, '-').toLowerCase()});
-
-          var grades = [2000, 5000, 10000, 50000, 100000, 300000, 0];
-
-          $(".hover").mouseenter(function(){
-            var id = this.id;
-            $("#"+id).attr("stroke", "black").attr("stroke-width", "2");
-            $(".hover").mouseleave(function(){
-              $("#"+id).attr("stroke", "").attr("stroke-width", "");
-            });
-          });
-        });
-        break;
-      
-      case "population-api":
-        $("#population-hold").empty()
-        d3.csv("/static/csv/2012_San_Diego_Demographics_-_County_Population.csv", function(error,data){
-          var pop_arr = {};
-
-          d3.select("#population-hold").selectAll("text")
-            .data(data)
-            .enter()
-            .append("p")
-            .text(function(d){ return d["Area "] + " " + (+d["Asian/Pacific Islander"]); })
-            .attr("class", function(d){ pop_arr[d["Area "].replace(/\s+/g, '-').toLowerCase()] = +d["Asian/Pacific Islander"];
-                                        return d["Area "].replace(/\s+/g, '-').toLowerCase() + " population hover";})
-            .attr("id", function(d){ return d["Area "].replace(/\s+/g, '-').toLowerCase()});
-
-          var grades = [100, 1000, 10000, 50000, 100000, 500000, 0];
-
-          $(".hover").mouseenter(function(){
-            var id = this.id;
-            $("#"+id).attr("stroke", "black").attr("stroke-width", "2");
-            $(".hover").mouseleave(function(){
-              $("#"+id).attr("stroke", "").attr("stroke-width", "");
-            });
-          });
-        });
-        break;
-      
-      case "population-other":
-        $("#population-hold").empty()
-        d3.csv("/static/csv/2012_San_Diego_Demographics_-_County_Population.csv", function(error,data){
-          var pop_arr = {};
-
-          d3.select("#population-hold").selectAll("text")
-            .data(data)
-            .enter()
-            .append("p")
-            .text(function(d){ return d["Area "] + " " + (+d["Other Race/ Ethnicity"]); })
-            .attr("class", function(d){ pop_arr[d["Area "].replace(/\s+/g, '-').toLowerCase()] = +d["Other Race/ Ethnicity"];
-                                        return d["Area "].replace(/\s+/g, '-').toLowerCase() + " population hover";})
-            .attr("id", function(d){ return d["Area "].replace(/\s+/g, '-').toLowerCase()});
-
-          var grades = [500, 1000, 5000, 10000, 20000, 200000, 0];
-
-          $(".hover").mouseenter(function(){
-            var id = this.id;
-            $("#"+id).attr("stroke", "black").attr("stroke-width", "2");
-            $(".hover").mouseleave(function(){
-              $("#"+id).attr("stroke", "").attr("stroke-width", "");
-            });
-          });
-        });
-        break;
-      
-      case "population-white":
-        $("#population-hold").empty()
-        d3.csv("/static/csv/2012_San_Diego_Demographics_-_County_Population.csv", function(error,data){
-          var pop_arr = {};
-
-          d3.select("#population-hold").selectAll("text")
-            .data(data)
-            .enter()
-            .append("p")
-            .text(function(d){ return d["Area "] + " " + (+d["White"]); })
-            .attr("class", function(d){ pop_arr[d["Area "].replace(/\s+/g, '-').toLowerCase()] = +d["White"];
-                                        return d["Area "].replace(/\s+/g, '-').toLowerCase() + " population hover";})
-            .attr("id", function(d){ return d["Area "].replace(/\s+/g, '-').toLowerCase()});
-
-          var grades = [5000, 10000, 50000, 100000, 500000, 2000000, 0];
-
-          $(".hover").mouseenter(function(){
-            var id = this.id;
-            $("#"+id).attr("stroke", "black").attr("stroke-width", "2");
-            $(".hover").mouseleave(function(){
-              $("#"+id).attr("stroke", "").attr("stroke-width", "");
-            });
-          });
-        });
-        break;
-    }
-  });
-
-}); // end SRA region
-
-function population(){
-  d3.csv("/static/csv/2012_San_Diego_Demographics_-_County_Population.csv", function(error,data){
-    var pop_arr = {};
-    
-    d3.select("#population-hold").selectAll("text")
-      .data(data)
-      .enter()
-      .append("p")
-      .text(function(d){ return d["Area "] + " " + (+d["Total 2012 Population"]); })
-      .attr("class", function(d){ pop_arr[d["Area "].replace(/\s+/g, '-').toLowerCase()] = +d["Total 2012 Population"];
-                                  return d["Area "] + " population hover";})
-      .attr("id", function(d){ return d["Area "].replace(/\s+/g, '-').toLowerCase()});
-
-    var cur = "";
-
-    var pop_grades = [7700,18000,80000,220000,780000,3200000];
-    var population_palette = [[132,209,132],[93,161,93],[74,132,74],[54,103,54],[35,74,35],[16,45,16]];
-    cur_palette = population_palette;
-
-    for(var i = 0; i < $("path").length; i++){
-      for(key in pop_arr){
-        if($("path")[i].id == key){
-          cur = $("path")[i].id;
-          // console.log(pop_arr[key]);
-          if( pop_arr[key] < pop_grades[0]  ) $("#"+cur).attr("fill", 'rgb('+(population_palette[0][0])+','+(population_palette[0][1])+','+(population_palette[0][2])+')').attr("stroke", "");
-          else if( pop_arr[key] < pop_grades[1]  ) $("#"+cur).attr("fill", 'rgb('+(population_palette[1][0])+','+(population_palette[1][1])+','+(population_palette[1][2])+')').attr("stroke", "");
-          else if( pop_arr[key] < pop_grades[2]  ) $("#"+cur).attr("fill", 'rgb('+(population_palette[2][0])+','+(population_palette[2][1])+','+(population_palette[2][2])+')').attr("stroke", "");
-          else if( pop_arr[key] < pop_grades[3]  ) $("#"+cur).attr("fill", 'rgb('+(population_palette[3][0])+','+(population_palette[3][1])+','+(population_palette[3][2])+')').attr("stroke", "");
-          else if( pop_arr[key] < pop_grades[4]  ) $("#"+cur).attr("fill", 'rgb('+(population_palette[4][0])+','+(population_palette[4][1])+','+(population_palette[4][2])+')').attr("stroke", "");
-          else if( pop_arr[key] < pop_grades[5]  ) $("#"+cur).attr("fill", 'rgb('+(population_palette[5][0])+','+(population_palette[5][1])+','+(population_palette[5][2])+')').attr("stroke", "");
-          else if( pop_arr[key] == 0  ) $("#"+cur).attr("fill", "rgba(230,230,250,.7)").attr("stroke", "");
-          else if( pop_arr[key] == null  ) $("#"+cur).attr("fill", "rgba(230,230,250,.7)").attr("stroke", "");
-          else $("#"+cur).attr("fill", "rgba(230,230,250,.7)").attr("stroke", "");
-        }
-      }     
-    }
-
-    $(".hover").mouseenter(function(){
-      var id = this.id;
-      $("#"+id).attr("stroke", "black").attr("stroke-width", "2");
-      $(".hover").mouseleave(function(){
-        $("#"+id).attr("stroke", "").attr("stroke-width", "");
-      });
-    });
-
-    $(".legend-color").empty().show();
-
-    for(var i = 0; i < palette.length-1; i++)
-    {
-      $(".legend-color").append("<span class='value'>"+pop_grades[i]+"</span><div class='key' style='background-color:"+population_palette[i]+";'></div>");
-    }
-
-    $(".ref-population span").empty().text("Overall");
-  });
-}
-
-$(document).ready(function(){
-
-var palette = ['rgb(110,170,190)','rgb(90,150,170)','rgb(70,130,150)','rgb(50,110,130)','rgb(30,90,110)','rgb(10,70,90)','rgb(230,230,250)'];
-var outline = 'RGB(200,70, 70)';
-var titleToggle = true;
-var incomeToggle = true;
-
-// population();
-
-// income was here
-
-$("#title-toggle").click(function(){
-  titleToggle = !titleToggle;
-  if(!titleToggle)
-    $(".text").hide();
-  else
-    $(".text").show();
-});
-
-$("#income-toggle").click(function(){
-  incomeToggle = !incomeToggle;
-  if(!incomeToggle)
-    $(".income").hide();
-  else
-    $(".income").show();
-});
-
-$(".population-info").show();
-$(".disease-info").hide();
-$(".environmental-info").hide();
-
-$(".type-select").change(function(){
-  switch(this.value){
-    case "tab-disease":
-      $(".disease-info").show();
-      $(".population-info").hide();
-      $(".environmental-info").hide();
-      break;
-    case "tab-population":
-      $(".disease-info").hide();
-      $(".population-info").show();
-      $(".environmental-info").hide();
-      break;
-    case "tab-environmental":
-      $(".disease-info").hide();
-      $(".population-info").hide();
-      $(".environmental-info").show();
-      break;
-  }
-});
-
-// pop colors was here
-
-// pop info was here
-
-///////////////////////////////////////////////// ENVIRONMENT /////////////////////////////////////////////////
-
-$(".environmental-select").change(function(){
-  switch(this.value){
-    case "CO2":
-      $("#environmental-hold").empty();
-      d3.csv("/static/csv/2010_CO2_emissions.csv", function(error,data){
-
-        var co2_arr = {};
-        
-        d3.select("#environmental-hold").selectAll("text")
-          .data(data)
-          .enter()
-          .append("p")
-          .text(function(d){ co2_arr[d["City"].replace(/\s+/g, '-').toLowerCase()] = 0;
-                              // console.log(d["City"]);
-                             return d["Facility"] +" in "+ d["City"] + ": " + (+d["Total Reported Emissions"]); })
-          .attr("class", function(d){ co2_arr[d["City"].replace(/\s+/g, '-').toLowerCase()] += (+d["Total Reported Emissions"]);
-                                      return d["City"] + " population hover";})
-          .attr("id", function(d){ return d["City"].replace(/\s+/g, '-').toLowerCase()});
-
-        if($(".co2-circle").length > 0)
-          $(".co2-circle").show();
-        else
-        {
-          var cur = "";
-          var grades = [10000, 50000, 150000, 200000, 300000, 2000000, 0];
-  
-          for(var i = 0; i < $("path").length; i++){
-            for(key in co2_arr){
-              if($("path")[i].id == key){
-                cur = $("path")[i].id;
-                if( co2_arr[key] < 10000  ) d3.select("#g-"+cur).append("circle").attr("r", "5").attr("cx", centroids[key][0]).attr("cy", centroids[key][1]).attr("fill", "rgba(255,0,0,.4)").attr("class", "co2-circle");
-                else if( co2_arr[key] < 50000  ) d3.select("#g-"+cur).append("circle").attr("r", "10").attr("cx", centroids[key][0]).attr("cy", centroids[key][1]).attr("fill", "rgba(255,0,0,.4)").attr("class", "co2-circle");
-                else if( co2_arr[key] < 150000  ) d3.select("#g-"+cur).append("circle").attr("r", "15").attr("cx", centroids[key][0]).attr("cy", centroids[key][1]).attr("fill", "rgba(255,0,0,.4)").attr("class", "co2-circle");
-                else if( co2_arr[key] < 200000  ) d3.select("#g-"+cur).append("circle").attr("r", "20").attr("cx", centroids[key][0]).attr("cy", centroids[key][1]).attr("fill", "rgba(255,0,0,.4)").attr("class", "co2-circle");
-                else if( co2_arr[key] < 300000  ) d3.select("#g-"+cur).append("circle").attr("r", "25").attr("cx", centroids[key][0]).attr("cy", centroids[key][1]).attr("fill", "rgba(255,0,0,.4)").attr("class", "co2-circle");
-                else if( co2_arr[key] < 2000000  ) d3.select("#g-"+cur).append("circle").attr("r", "30").attr("cx", centroids[key][0]).attr("cy", centroids[key][1]).attr("fill", "rgba(255,0,0,.4)").attr("class", "co2-circle");
-                else if( co2_arr[key] == 0  ) d3.select("#g-"+cur).append("circle").attr("r", "2").attr("cx", centroids[key][0]).attr("cy", centroids[key][1]).attr("fill", "rgba(255,0,0,.4)").attr("class", "co2-circle");
-                else if( co2_arr[key] == null  ) d3.select("#g-"+cur).append("circle").attr("r", 2).attr("cx", centroids[key][0]).attr("cy", centroids[key][1]).attr("fill", "rgba(255,0,0,.4)").attr("class", "co2-circle");
-                else d3.select("#g-"+cur).append("circle").attr("r", "2").attr("cx", centroids[key][0]).attr("cy", centroids[key][1]).attr("fill", "rgba(255,0,0,.4)").attr("class", "co2-circle");
-              }
-            }     
-          }
-        }
-
-        // $(".legend-color").empty();
-
-        // for(var i = 0; i < palette.length-1; i++)
-        // {
-        //   $(".legend-color").append("<span class='value'>"+grades[i]+"</span><div class='key' style='background-color:"+palette[i]+";'></div>");
-        // }
-
-// 1223051
-//  279079
-//  245580
-//  239509
-//  230278
-//  200000
-//  169221
-//  153828
-//  150000
-//  127598
-//  106060
-//   50000
-//   34609
-//   27220
-//   26940
-//   13304
-//    9578
-//    7003
-
-        $(".hover").mouseenter(function(){
-          // console.log(this.id);
-          var id = this.id;
-          $("#"+id).attr("stroke", "white");
-          $(".hover").mouseleave(function(){
-            $("#"+id).attr("stroke", "");
-          });
-        });
-      
-        $(".ref-environment span").empty().text("CO2");
-      });
-      break;
-
-    case "none-environment": 
-      // d3.csv("/static/csv/2010_CO2_emissions.csv", function(error,data){
-      //   d3.select("svg").selectAll("path.environment")
-      //     .data(data)
-      //     .attr("stroke", "").attr("stroke-width", "")
-      // });
-      $("co2-circle").hide();
-      break;      
 
     default: break;
   }
+
+  switch(this.className) {
+    
+    // Set neighborhood color based on population
+    case 'toggle population':
+      setPopulationColor();
+      break; // end population
+  }
 });
 
+// Create layers
+// Neighborhood layer
+d3.json("https://cdn.rawgit.com/ifearcompilererrors/San-Diego-County-Health/gh-pages/static/json/SRA2010tiger.geojson", function(geoError, geoData){
+  var neighborhoodBounds = geoData.features;
+
+  // Draw neighborhoods
+  geojsonLayer.addLayer(
+    L.geoJson(neighborhoodBounds, {
+      style: setGeoStyle,
+      onEachFeature: onEachFeatureGeoJson
+    })
+  ).addTo(map);
+
+  // Draw untextured/unfilled disease layers
+  diseasedLayers.addLayer(
+    L.geoJson(neighborhoodBounds, {
+      style: setDiseaseStyle
+    })
+  );
+
+  /* Set neighborhood style */
+  function setGeoStyle(features) {
+    return {
+      fillColor: 'floralwhite',
+      fillOpacity: 0.8,
+      weight: 1,
+      opacity: 0.65,
+      className: 'neighborhood '+massage(features.properties.NAME)
+    }
+  }
+
+  /* Visualize data per layer */
+  function onEachFeatureGeoJson(features, layer) {
+    collectCentroids(features, layer);
+    displayNames(features, layer);
+  }
+
+  /* Display neighborhood names */
+  function displayNames(features, layer) {
+    var neighborhood = massage(features.properties.NAME);
+    var layerTooltip = layer.bindTooltip(massage_proper(neighborhood));
+  }
+
+  /* Get coordinates of the center of each neighborhood */
+  function collectCentroids(features, layer) {
+    centroids[massage(layer.feature.properties.NAME)] = 
+      $.geo.centroid(layer.feature.geometry).coordinates;
+  }
+
+  /* Set diseased layers style */
+  function setDiseaseStyle(features) {
+    return {
+      weight: 1,
+      className: 'disease dementia-no-layer dementia-no-'+massage(features.properties.NAME)
+    }
+  }
+
+  // Collect pattern weights for dementia no. 
+  d3.csv("https://cdn.rawgit.com/ifearcompilererrors/San-Diego-County-Health/gh-pages/static/csv/2010-2012_Dementia.csv", function(disError,disData){
+    disData.forEach(function(d) {
+      patternWeights[massage(d.Geography)] = parseInt(d['2012 Dementia Death No.'])/10;
+    }); // end disData iteration
+  }); // end csv dementia
+
+  // TODO: refactor!!!!; popup -> tooltip
+  // Emissions data layer: circles at the center of a facility's neighborhood
+  // Radius of circles are based on Total Reported Emissions
+  d3.csv("/static/csv/2010_CO2_emissions.csv", function(csverror,csvdata){
+    var pollutantNhood,
+        neighborhood,
+        pollutantToggle;
+
+    co2Layer = L.layerGroup();
+
+    // Create emissions layer
+    csvdata.forEach(function(d) {
+      co2Layer.addLayer(
+        L.circle(centroids[massage(d['City'])].reverse(), {
+          setZIndex: 500,
+          radius: normalizeRadius(d),
+          className: 'pollutant co2',
+        })
+        .on('mouseover', function(e) { // Add mouseover tooltip
+          var layer = e.target,
+              data = d;
+          var titles = ["<div class='marker-title'>", "Facility: ", "City: " , "State: " , "Total Reported Emissions: " , "Sectors: "]
+          var features = [data['Facility'], data['City'], data['State'], data['Total Reported Emissions'], data['Sectors']]
+          var display = [];
+          var content = "";
+
+          for(var i = 0; i < features.length; i++) {
+            if(features[i] !== null) {
+              content = titles[i] + features[i];
+              if(i === 0)
+                display.push(content+"</div>");
+              else
+                display.push(content+"<br>");
+            }
+          }
+
+          content = "";
+          for(var x = 0; x < display.length; x++) {
+            content += display[x];
+          }
+
+          popup.setLatLng(e.latlng);
+          popup.setContent(content);
+
+          if (!popup._map) popup.openOn(map);
+          window.clearTimeout(closeTooltip);
+
+          // highlight feature
+          layer.setStyle({
+            weight: 3,
+            opacity: 0.3,
+            fillOpacity: 0.9
+          });
+
+          if (!L.Browser.ie && !L.Browser.opera) {
+            layer.bringToFront();
+          }
+        }) // end mouseover
+        .on('mouseout', function(e) {
+          closeTooltip = window.setTimeout(function() {
+            map.closePopup();
+          }, 100);
+        }) // end mouseout
+      ); // end addLayer
+    }); // end forEach
+  }); // end emissions csv
+}); // end neighborhood json
+
+/* Fit radius of emissions to map */
+function normalizeRadius(d) {
+  var r = d['Total Reported Emissions']/25;
+  if(r > 10000) return 20000
+  return r
+}
+
+/* Display neighborhood median $$$ income $$$ */
+function displayIncome(display) {
+  d3.csv("https://cdn.rawgit.com/ifearcompilererrors/San-Diego-County-Health/gh-pages/static/csv/2012_San_Diego_Demographics_-_County_Vs_Subregional_Area_Income.csv", function(incomeError, incomeData){
+    var neighborhoods = geojsonLayer.getLayers()[0]._layers,
+        neighborhoodName,
+        neighborhood,
+        cashMoney,
+        greens;
+
+    for(var [key,value] of Object.entries(neighborhoods)) {
+      neighborhoodName = massage(value.feature.properties.NAME);
+      neighborhood = '.'+value.options.className.replace(/\s+/g, '.')
+
+      if(display) {
+          avg = getIncomeAvg(incomeData);
+
+          incomeData.forEach(function(incomeDatum) {
+            cashMoney = parseInt(incomeDatum['Median household income'].substr(1));
+            if(massage(incomeDatum['Area']) === neighborhoodName) {
+              if(cashMoney <= avg-20000) {
+                greens = '$'
+              }
+              else if(cashMoney <= avg-10000) { 
+                greens = '$$'
+              }
+              else if(cashMoney <= avg+10000) { 
+                greens = '$$$'
+              }
+              else if(cashMoney >= avg+20000) { 
+                greens = '$$$$'
+              }
+            }
+          }); // end incomeData.forEach()
 
 
-});
+        value.bindTooltip(greens, {
+          permanent: true,
+          direction: 'center',
+          className: 'income-tooltip'
+        });
+      } // end if(display)
+      else {
+        value.unbindTooltip()
+      } // end else
+    } // end neighborhoods loop
+  }); // end csv
+} // end displayIncome
+
+/* Get San Diego median income average */
+function getIncomeAvg(incomeData) {
+  var totalIncome = 0;
+  incomeData.forEach(function(d) {
+    totalIncome += parseInt(d['Median household income'].substr(1));
+  });
+
+  return totalIncome/incomeData.length;
+}
+
+/* Dynamically set neighborhood layer fill color based on population demographics */
+function setPopulationColor() {
+  // color based on number
+  // Get array of checked demographic boxes
+  var display = $(".population:checkbox:checked"),
+      countyTotalOnly = false,
+      countyTotals = {},
+      total,
+      id,
+      countyTotal,
+      countyTotalData,
+      normalize,
+      fillColor;
+
+  d3.csv("https://cdn.rawgit.com/ifearcompilererrors/San-Diego-County-Health/gh-pages/static/csv/2012_San_Diego_Demographics_-_County_Population.csv", function(poperror,popdata){
+    countyTotalData = popdata[popdata.length-1] // exclude last superfluous layer
+
+    popdata.forEach(function(d) {
+      countyTotal = parseInt(d['Total 2012 Population']);
+      total = 0; // Agreggate population total; we'll base the color off this number
+
+      // Get total population of checked boxes from each neighborhood
+      neighborhood = massage(d['Area ']);
+      for(var i = 0; i < display.length; i++) {
+        id = display[i].id.replace(/-/g, ' ')
+        total += parseInt(d[id])
+        countyTotal += parseInt(countyTotalData[id])
+
+        // If Total 2012 Population is on- that's IT it's OVER.
+        if(id === 'Total 2012 Population') {
+          countyTotalOnly = true
+          break;
+        }
+      }
+
+      countyTotals[neighborhood] = total
+      normalize = (total/countyTotal)*20
+      $('.'+neighborhood).css('fill', function(d) { 
+        if(normalize > 0) return d3.interpolateBlues(normalize)
+        else return 'floralwhite'
+      });
+    });
+  });
+
+  setLegendText(countyTotals, countyTotalOnly)
+}
+
+/* Fill disease layer with disease pattern style */
+function setDiseaseStyle() {
+  var layers = diseasedLayers.getLayers()[0]._layers,
+      neighborhood;
+
+  for(var [key, value] of Object.entries(layers)) {
+    neighborhood = massage(value.feature.properties.NAME)
+
+    value.setStyle({
+      fillOpacity: 0.65,
+      fillPattern: new L.StripePattern({
+        weight: patternWeights[neighborhood],
+        opacity: 1,
+      }).addTo(map)
+    })
+  }
+}
+
+/* Get averages for each population demographic */
+function getPopAvgs(data) {
+  var population = 0,
+      demographic = {'Black': '','Hispanic': '','Asian/Pacific Islander': '','Other Race/ Ethnicity': '','White': '', 'Total 2012 Population': ''},
+      count;
+
+  for(var [key, value] of Object.entries(demographic)) {
+    count = 0;
+    data.forEach(function(d) {
+      count += 1;
+      population += parseInt(d[key]);
+    });
+
+    demographic[key] =
+      Math.round(population / count);
+  }
+
+  return demographic
+}
+
+/* Get population overall min and max data */
+function getPopMaxMin(data, category) {
+  var population = [], max, min;
+  data.forEach(function(d) {
+    population.push(parseInt(d[category]));
+  });
+  max = population[0];
+  min = population[0];
+  
+  for(var i = 0; i < population.length; i++) {
+    if(population[i] > max) {max = population[i];}
+    if(population[i] < min) {min = population[i];}
+  }
+
+  return [max, min]
+}
+
+function setLegendText(totals, countyOnly) {
+  var categories = $(".population:checkbox:checked");
+  if(!categories.length) {
+    $('.domain-values').empty()
+    return
+  }
+
+  var max = 0,
+      min = Number.MAX_SAFE_INTEGER,
+      domainValues = $('.domain-values'),
+      category,
+      maxmin;
+
+
+  d3.csv("https://cdn.rawgit.com/ifearcompilererrors/San-Diego-County-Health/gh-pages/static/csv/2012_San_Diego_Demographics_-_County_Population.csv", function(poperror,popdata){
+
+    // Only display numbers for min and max of total county population
+    if(countyOnly) {
+      maxmin = getPopMaxMin(popdata, 'Total 2012 Population')
+      max = maxmin[0]
+      min = maxmin[1]
+    } else {
+      for(var i = 0; i < categories.length; i++) {
+        category = categories[i].id.replace(/-/g, ' ');
+
+        maxmin = getPopMaxMin(popdata, category)
+
+        if(maxmin[0] > max) max = maxmin[0]
+        if(maxmin[1] < min) min = maxmin[1]
+      } // end categories iteration
+  } // end else
+
+    var x = d3.scaleLinear()
+      .domain([1, 10])
+      // .range([min,max])
+      .rangeRound([10, 270]);
+
+    var color = d3.scaleThreshold()
+        .domain(d3.range(1, 10))
+        .range(d3.schemeBlues[9])
+
+
+
+    var g = d3.select('.key')
+
+    if(domainValues.length) $('.domain-values').empty()
+
+    g = g.append('g')
+        .attr('class', 'domain-values')
+    
+    g = g.call(d3.axisBottom(x)
+        .tickSize(13)
+        .tickFormat(function(x, i) {
+          if(x == 1) return min;
+          else if(x == 9) return max;
+          return Math.round(((max-min)/(10-1))*x);
+        })
+        .tickValues(color.domain()))
+    g.selectAll('.tick').select('text')
+        .attr('class', 'tick-text')
+    g.select(".domain")
+        .remove();
+
+    g.selectAll('.tick-text')
+        .style("text-anchor", "beginning")
+        .attr('dx', '-2em')
+        .attr('dy', '.17em')
+        .attr("transform", "rotate(-30)")
+
+  }); // end csv population
+}
+
+/* Color scale delimeters and labels */
+function colorScale(max, min, canvas) {
+  var x = d3.scaleLinear()
+    .domain([1, 10])
+    .range([min,max])
+    .rangeRound([10, 270]);
+
+  var color = d3.scaleThreshold()
+      .domain(d3.range(1, 10))
+      .range(d3.schemeBlues[9])
+
+  var g = canvas.append("g")
+      .attr("class", "key")
+      .attr("transform", "translate(0,20)");
+
+  g.selectAll("rect")
+    .data(color.range().map(function(d) {
+        d = color.invertExtent(d);
+        if (d[0] == null) d[0] = x.domain()[0];
+        if (d[1] == null) d[1] = x.domain()[1];
+        return d;
+      }))
+    .enter().append("rect")
+      .attr("height", 8)
+      .attr("x", function(d) { return x(d[0]); })
+      .attr("width", function(d) { return x(d[1]) - x(d[0]); })
+      .attr("fill", function(d) { return color(d[0]); })
+      .attr("fill-opacity", 0.65 );
+
+  g.append("text")
+      .attr("class", "caption")
+      .attr("x", x.range()[0])
+      .attr("y", -6)
+      .attr("fill", "#000")
+      .attr("text-anchor", "start")
+      .attr("font-weight", "bold")
+      .text("Population");
+}
+
+/* Help folks understand their data with colors of the wind */
+function appendLegend() {
+  d3.csv("https://cdn.rawgit.com/ifearcompilererrors/San-Diego-County-Health/gh-pages/static/csv/2012_San_Diego_Demographics_-_County_Population.csv", function(poperror,popdata){
+    var neighborhood,
+        neighborhoodList,
+        maxmin, max, min;
+
+    // Calculate max and min
+    maxmin = getPopMaxMin(popdata, 'Total 2012 Population');
+
+    // Create color scale
+    svg = d3.select('body').append('svg')
+      .attr('width', 350)
+      .attr('height', 90)
+      .attr('class', 'canvas')
+
+    colorScale(maxmin[0], maxmin[1], svg);
+
+  }); // end population csv
+}
+
+/* 'TurN THis' into 'turn-this' */
+function massage(string) { return string.toLowerCase().replace(/\s+/g, '-'); }
+
+/* 'turn-this' into 'Turn This' */
+function massage_proper(string) { 
+  string = string.replace(/-/g, ' ')
+  return string.replace(/\w\S*/g, function(str){
+    return str.charAt(0).toUpperCase() + str.substr(1).toLowerCase();
+  });
+}
+
+/* when ur too lazy during developmnt 2 typ */
+function print(string) {
+  console.log(string);
+}
