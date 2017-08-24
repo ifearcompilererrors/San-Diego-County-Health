@@ -63,7 +63,7 @@ $('.toggle').click(function(d) {
 
 // Create layers
 // Neighborhood layer
-d3.json("/static/json/SRA2010tiger.geojson", function(geoError, geoData){
+d3.json("https://cdn.rawgit.com/ifearcompilererrors/San-Diego-County-Health/gh-pages/static/json/SRA2010tiger.geojson", function(geoError, geoData){
   var neighborhoodBounds = geoData.features;
 
   // Draw neighborhoods
@@ -119,7 +119,7 @@ d3.json("/static/json/SRA2010tiger.geojson", function(geoError, geoData){
   }
 
   // Collect pattern weights for dementia no. 
-  d3.csv("/static/csv/2010-2012_Dementia.csv", function(disError,disData){
+  d3.csv("https://cdn.rawgit.com/ifearcompilererrors/San-Diego-County-Health/gh-pages/static/csv/2010-2012_Dementia.csv", function(disError,disData){
     disData.forEach(function(d) {
       patternWeights[massage(d.Geography)] = parseInt(d['2012 Dementia Death No.'])/10;
     }); // end disData iteration
@@ -202,7 +202,7 @@ function normalizeRadius(d) {
 
 /* Display neighborhood median $$$ income $$$ */
 function displayIncome(display) {
-  d3.csv("/static/csv/2012_San_Diego_Demographics_-_County_Vs_Subregional_Area_Income.csv", function(incomeError, incomeData){
+  d3.csv("https://cdn.rawgit.com/ifearcompilererrors/San-Diego-County-Health/gh-pages/static/csv/2012_San_Diego_Demographics_-_County_Vs_Subregional_Area_Income.csv", function(incomeError, incomeData){
     var neighborhoods = geojsonLayer.getLayers()[0]._layers,
         neighborhoodName,
         neighborhood,
@@ -215,7 +215,6 @@ function displayIncome(display) {
 
       if(display) {
           avg = getIncomeAvg(incomeData);
-          print(avg)
 
           incomeData.forEach(function(incomeDatum) {
             cashMoney = parseInt(incomeDatum['Median household income'].substr(1));
@@ -252,7 +251,7 @@ function displayIncome(display) {
 /* Get San Diego median income average */
 function getIncomeAvg(incomeData) {
   var totalIncome = 0;
-  incomeData.forEach(function(d){
+  incomeData.forEach(function(d) {
     totalIncome += parseInt(d['Median household income'].substr(1));
   });
 
@@ -264,6 +263,8 @@ function setPopulationColor() {
   // color based on number
   // Get array of checked demographic boxes
   var display = $(".population:checkbox:checked"),
+      countyTotalOnly = false,
+      countyTotals = {},
       total,
       id,
       countyTotal,
@@ -271,8 +272,9 @@ function setPopulationColor() {
       normalize,
       fillColor;
 
-  d3.csv("/static/csv/2012_San_Diego_Demographics_-_County_Population.csv", function(poperror,popdata){
-    countyTotalData = popdata[popdata.length-1]
+  d3.csv("https://cdn.rawgit.com/ifearcompilererrors/San-Diego-County-Health/gh-pages/static/csv/2012_San_Diego_Demographics_-_County_Population.csv", function(poperror,popdata){
+    countyTotalData = popdata[popdata.length-1] // exclude last superfluous layer
+
     popdata.forEach(function(d) {
       countyTotal = parseInt(d['Total 2012 Population']);
       total = 0; // Agreggate population total; we'll base the color off this number
@@ -285,11 +287,13 @@ function setPopulationColor() {
         countyTotal += parseInt(countyTotalData[id])
 
         // If Total 2012 Population is on- that's IT it's OVER.
-        if(id === 'Total 2012 Population'){
+        if(id === 'Total 2012 Population') {
+          countyTotalOnly = true
           break;
         }
       }
 
+      countyTotals[neighborhood] = total
       normalize = (total/countyTotal)*20
       $('.'+neighborhood).css('fill', function(d) { 
         if(normalize > 0) return d3.interpolateBlues(normalize)
@@ -297,6 +301,8 @@ function setPopulationColor() {
       });
     });
   });
+
+  setLegendText(countyTotals, countyTotalOnly)
 }
 
 /* Fill disease layer with disease pattern style */
@@ -338,10 +344,10 @@ function getPopAvgs(data) {
 }
 
 /* Get population overall min and max data */
-function getPopMaxMin(data) {
+function getPopMaxMin(data, category) {
   var population = [], max, min;
   data.forEach(function(d) {
-    population.push(parseInt(d['Total 2012 Population']));
+    population.push(parseInt(d[category]));
   });
   max = population[0];
   min = population[0];
@@ -354,6 +360,78 @@ function getPopMaxMin(data) {
   return [max, min]
 }
 
+function setLegendText(totals, countyOnly) {
+  var categories = $(".population:checkbox:checked");
+  if(!categories.length) {
+    $('.domain-values').empty()
+    return
+  }
+
+  var max = 0,
+      min = Number.MAX_SAFE_INTEGER,
+      domainValues = $('.domain-values'),
+      category,
+      maxmin;
+
+
+  d3.csv("https://cdn.rawgit.com/ifearcompilererrors/San-Diego-County-Health/gh-pages/static/csv/2012_San_Diego_Demographics_-_County_Population.csv", function(poperror,popdata){
+
+    // Only display numbers for min and max of total county population
+    if(countyOnly) {
+      maxmin = getPopMaxMin(popdata, 'Total 2012 Population')
+      max = maxmin[0]
+      min = maxmin[1]
+    } else {
+      for(var i = 0; i < categories.length; i++) {
+        category = categories[i].id.replace(/-/g, ' ');
+
+        maxmin = getPopMaxMin(popdata, category)
+
+        if(maxmin[0] > max) max = maxmin[0]
+        if(maxmin[1] < min) min = maxmin[1]
+      } // end categories iteration
+  } // end else
+
+    var x = d3.scaleLinear()
+      .domain([1, 10])
+      // .range([min,max])
+      .rangeRound([10, 270]);
+
+    var color = d3.scaleThreshold()
+        .domain(d3.range(1, 10))
+        .range(d3.schemeBlues[9])
+
+
+
+    var g = d3.select('.key')
+
+    if(domainValues.length) $('.domain-values').empty()
+
+    g = g.append('g')
+        .attr('class', 'domain-values')
+    
+    g = g.call(d3.axisBottom(x)
+        .tickSize(13)
+        .tickFormat(function(x, i) {
+          if(x == 1) return min;
+          else if(x == 9) return max;
+          return Math.round(((max-min)/(10-1))*x);
+        })
+        .tickValues(color.domain()))
+    g.selectAll('.tick').select('text')
+        .attr('class', 'tick-text')
+    g.select(".domain")
+        .remove();
+
+    g.selectAll('.tick-text')
+        .style("text-anchor", "beginning")
+        .attr('dx', '-2em')
+        .attr('dy', '.17em')
+        .attr("transform", "rotate(-30)")
+
+  }); // end csv population
+}
+
 /* Color scale delimeters and labels */
 function colorScale(max, min, canvas) {
   var x = d3.scaleLinear()
@@ -362,8 +440,8 @@ function colorScale(max, min, canvas) {
     .rangeRound([10, 270]);
 
   var color = d3.scaleThreshold()
-      .domain(d3.range(2, 10))
-      .range(d3.schemeBlues[9]);
+      .domain(d3.range(1, 10))
+      .range(d3.schemeBlues[9])
 
   var g = canvas.append("g")
       .attr("class", "key")
@@ -391,34 +469,24 @@ function colorScale(max, min, canvas) {
       .attr("text-anchor", "start")
       .attr("font-weight", "bold")
       .text("Population");
-
-  g.call(d3.axisBottom(x)
-      .tickSize(13)
-      .tickFormat(function(x, i) { return x; })
-      .tickValues(color.domain()))
-    .select(".domain")
-      .remove();
 }
 
 /* Help folks understand their data with colors of the wind */
 function appendLegend() {
-  d3.csv("/static/csv/2012_San_Diego_Demographics_-_County_Population.csv", function(poperror,popdata){
+  d3.csv("https://cdn.rawgit.com/ifearcompilererrors/San-Diego-County-Health/gh-pages/static/csv/2012_San_Diego_Demographics_-_County_Population.csv", function(poperror,popdata){
     var neighborhood,
         neighborhoodList,
-        populationAvgs,
         maxmin, max, min;
 
-    // Calculate averages for each population demographic
-    populationAvgs = getPopAvgs(popdata);
-
     // Calculate max and min
-    maxmin = getPopMaxMin(popdata);
+    maxmin = getPopMaxMin(popdata, 'Total 2012 Population');
 
     // Create color scale
     svg = d3.select('body').append('svg')
       .attr('width', 350)
       .attr('height', 90)
       .attr('class', 'canvas')
+
     colorScale(maxmin[0], maxmin[1], svg);
 
   }); // end population csv

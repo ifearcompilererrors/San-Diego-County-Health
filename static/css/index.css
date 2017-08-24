@@ -34,10 +34,17 @@ body {
 
 .canvas {
   position:absolute;
+  padding-left:2em;
 }
 
 .income-tooltip {
   background-color: none;
   background: none;
   border: 0px;
+}
+
+.ticasdfk-text {
+  -ms-transform: rotate(-65); /* IE 9 */
+  -webkit-transform: rotate(-65); /* Chrome, Safari, Opera */
+  transform: rotate(-65);*/
 }
